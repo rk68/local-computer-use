@@ -31,7 +31,7 @@ Saved on 11 November 2026, in the order supplied:
 
 ## Further visual polish
 
-- [ ] Make the input glow brighter: purple and pink, with an optional soft yellow accent or mixed colours.
+- [x] Brighten the input glow with purple, pink, and a soft yellow accent. Increase it on focus in both themes.
 
 ## Online browser and reliability
 

@@ -517,31 +517,41 @@ footer { justify-content: flex-end; }
 .notice-dismiss { width: 26px; height: 26px; flex: none; border-color: transparent; background: transparent; }
 @media (max-width: 480px) { .app-notice { padding: 12px; gap: 9px; border-radius: 14px; } }
 
-/* Static shadows keep the input halo inexpensive to render. */
+/* A static purple/pink halo with a soft gold edge; no animated blur layer. */
 #chat-form {
-  box-shadow: 0 0 0 1px #ffffff03,
-    -7px 5px 23px -10px #ffc7ae38,
-    7px -4px 24px -10px #c4b5fd3d,
+  border-color: transparent;
+  background: linear-gradient(var(--raised), var(--raised)) padding-box,
+    linear-gradient(115deg, #a78bfa70, #f472b680 58%, #fcd34d50) border-box;
+  box-shadow: -10px 0 26px -9px #a78bfa5c,
+    10px 3px 26px -9px #f472b652,
+    0 8px 22px -11px #fcd34d42,
     0 5px 14px -8px #00000040;
 }
 #chat-form:focus-within {
-  border-color: #bdb5c75c;
-  box-shadow: 0 0 0 1px #ffffff08,
-    -7px 5px 26px -9px #ffc7ae4d,
-    7px -4px 28px -9px #c4b5fd57,
+  border-color: transparent;
+  background: linear-gradient(var(--raised), var(--raised)) padding-box,
+    linear-gradient(115deg, #a78bfab3, #f472b6b3 58%, #fcd34d80) border-box;
+  box-shadow: -10px 0 30px -8px #a78bfa80,
+    10px 3px 30px -8px #f472b670,
+    0 8px 26px -10px #fcd34d57,
     0 5px 14px -8px #00000040;
 }
 :root[data-theme='light'] #chat-form {
-  box-shadow: 0 0 0 1px #ffffff80,
-    -7px 5px 24px -10px #e6b7a15c,
-    7px -4px 26px -10px #c4b5fd61,
+  border-color: transparent;
+  background: linear-gradient(var(--paper), var(--paper)) padding-box,
+    linear-gradient(115deg, #a78bfa80, #f472b680 58%, #fcd34d70) border-box;
+  box-shadow: -10px 0 26px -9px #a78bfa66,
+    10px 3px 26px -9px #f472b65c,
+    0 8px 22px -11px #fcd34d57,
     0 5px 14px -8px #00000014;
 }
 :root[data-theme='light'] #chat-form:focus-within {
-  border-color: #c5b9cf;
-  box-shadow: 0 0 0 1px #ffffff80,
-    -7px 5px 28px -9px #e6b7a170,
-    7px -4px 30px -9px #c4b5fd7a,
+  border-color: transparent;
+  background: linear-gradient(var(--paper), var(--paper)) padding-box,
+    linear-gradient(115deg, #a78bfacc, #f472b6b3 58%, #fcd34d99) border-box;
+  box-shadow: -10px 0 30px -8px #a78bfa85,
+    10px 3px 30px -8px #f472b675,
+    0 8px 26px -10px #fcd34d70,
     0 5px 14px -8px #00000014;
 }
 .network-choice { display: flex; justify-content: center; align-items: center; gap: 6px; margin: 8px 0 12px; color: var(--muted); font-size: 10px; }
