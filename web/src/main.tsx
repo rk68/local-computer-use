@@ -172,7 +172,6 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
         <img className="brand-logo brand-logo-light" src="/brand/halo-lockup-black.svg" width="121" height="40" alt="halo" />
       </a>
       <button className="nav active agent-nav" onClick={() => input.current?.focus()}><HoloAvatar small /><span>Halo<small>Your local assistant</small></span></button>
-      <button className={`nav desktop-nav ${showDesktop ? 'active' : ''}`} aria-controls="desktop-sidebar" aria-expanded={showDesktop} onClick={() => setShowDesktop(visible => !visible)}><span className="nav-icon" aria-hidden="true">▧</span><span>Virtual desktop</span><span className={`dot ${state.sandbox ? 'on' : 'off'}`} /></button>
       <div className="local-note"><span className="dot" /> Inference on your Mac</div>
     </aside>
     <main>
