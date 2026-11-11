@@ -18,6 +18,11 @@ nohup /tmp/holo-browser-env/bin/python /tmp/holo-browser.py --serve >/tmp/holo-b
 """
 
 
+class PrivacyViewBlocked(RuntimeError):
+    def __init__(self):
+        super().__init__('Private view blocked: this page cannot be masked safely. Stop the sandbox before continuing.')
+
+
 class BrowserSession:
     def __init__(self, guest):
         self.guest = guest
@@ -40,7 +45,11 @@ class BrowserSession:
             if not result.success:
                 raise ValueError
             data = json.loads(result.stdout)
-            if data.get('ok') is not True or data.get('request_id') != request_id:
+            if data.get('request_id') != request_id:
+                raise ValueError
+            if data.get('error_code') == 'privacy-blocked':
+                raise PrivacyViewBlocked
+            if data.get('ok') is not True:
                 raise ValueError
             png = await self.guest.files.read_bytes('/dev/shm/holo-private/screen.png', length=15_000_001)
             if not png.startswith(b'\x89PNG\r\n\x1a\n') or len(png) > 15_000_000:
@@ -48,6 +57,8 @@ class BrowserSession:
             self.screen = png
             self.origin = data.get('origin')
             return png
+        except PrivacyViewBlocked:
+            raise
         except Exception:
             # Neither SDK errors nor browser errors may quote a credential payload.
             raise RuntimeError('The guest browser operation failed. No action was retried. Refresh or stop the sandbox.') from None

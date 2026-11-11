@@ -1,0 +1,3 @@
+# Optional isolated browser QA only. Not installed by the app setup.
+playwright==1.59.0
+Pillow==13.0.0

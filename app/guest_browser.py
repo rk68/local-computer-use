@@ -6,6 +6,7 @@ passed in command arguments or printed. Errors deliberately omit page contents.
 import ipaddress
 import json
 import os
+import re
 from pathlib import Path
 import socket
 import sys
@@ -32,6 +33,33 @@ def public_url(value):
 def origin(value):
     url = urlsplit(value)
     return f'{url.scheme}://{url.hostname}'
+
+
+class PrivacyBlocked(Exception):
+    """A known rendering surface cannot be safely inspected by the model."""
+
+
+def secret_matcher(value):
+    # Match case changes and invisible/inter-character spacing without huge regexes.
+    gap = r'[\s\u200b\u200c\u200d\ufeff]*'
+    return re.compile(gap.join(re.escape(char) for char in value[:128]), re.IGNORECASE)
+
+
+def contains_closed_shadow(node):
+    if isinstance(node, dict):
+        return node.get('shadowRootType') == 'closed' or any(contains_closed_shadow(value) for value in node.values())
+    return isinstance(node, list) and any(contains_closed_shadow(value) for value in node)
+
+
+def prepare_context(browser):
+    # Keep a window alive while replacing the initial browser context.
+    old_pages = [page for context in browser.contexts for page in context.pages]
+    context = browser.new_context(accept_downloads=True, service_workers='block', viewport={'width': 1280, 'height': 800})
+    context.route_web_socket('**/*', lambda connection: connection.close())
+    context.new_page()
+    for page in old_pages:
+        page.close()
+    return context
 
 
 def operate(request, browser):
@@ -110,8 +138,15 @@ def operate(request, browser):
     # Always hide editable values. Once used, hide known secret text and rendered media too.
     masks = [page.locator('input:not([type=button]):not([type=submit]), textarea, [contenteditable=true]')]
     if secrets:
-        masks.append(page.locator('canvas, img, video, iframe'))
-        masks.extend(page.get_by_text(value, exact=False) for value in secrets)
+        session = context.new_cdp_session(page)
+        try:
+            document = session.send('DOM.getDocument', {'depth': -1, 'pierce': True})
+            if contains_closed_shadow(document):
+                raise PrivacyBlocked
+        finally:
+            session.detach()
+        masks.append(page.locator('canvas, img, video, iframe, svg, object, embed'))
+        masks.extend(page.get_by_text(secret_matcher(value)) for value in secrets)
     png = page.screenshot(mask=masks, mask_color='#292929', timeout=10000)
     current = origin(page.url) if public_url(page.url) else None
     (PRIVATE / 'screen.png').write_bytes(png)
@@ -126,8 +161,8 @@ def run(request):
         return operate(request, browser)
 
 
-def failure():
-    return {'ok': False, 'error': 'Browser operation failed. No action was retried.'}
+def failure(privacy=False):
+    return {'ok': False, 'error_code': 'privacy-blocked' if privacy else 'operation-failed'}
 
 
 def serve():
@@ -142,12 +177,7 @@ def serve():
                 time.sleep(.5)
         if browser is None:
             return
-        for old_context in browser.contexts:
-            for old_page in old_context.pages:
-                old_page.close()
-        context = browser.new_context(accept_downloads=True, service_workers='block', viewport={'width': 1280, 'height': 800})
-        context.route_web_socket('**/*', lambda connection: connection.close())
-        context.new_page()
+        context = prepare_context(browser)
         ready = PRIVATE / 'request.ready'
         request_path = PRIVATE / 'request.json'
         while True:
@@ -165,6 +195,8 @@ def serve():
                 request = json.loads(request_path.read_text())
                 request_path.unlink(missing_ok=True)
                 result = operate(request, browser)
+            except PrivacyBlocked:
+                result = failure(privacy=True)
             except Exception:
                 result = failure()  # Never print Playwright exceptions containing values.
             result['request_id'] = request.get('request_id')

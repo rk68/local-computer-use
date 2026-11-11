@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app import core, guest_browser
-from app.browser_session import BrowserSession
+from app.browser_session import BrowserSession, PrivacyViewBlocked
 from app.credential_vault import CredentialVault, website_origin
 from app.desktop_task import DesktopTask
 from app.task_verification import verify_completion
@@ -55,6 +55,31 @@ class BrowserBoundary(unittest.TestCase):
         with patch.object(guest_browser.socket, 'getaddrinfo', return_value=[(0, 0, 0, '', ('93.184.216.34', 443))]):
             self.assertTrue(guest_browser.public_url('https://example.com'))
 
+    def test_mask_pattern_handles_case_and_invisible_spacing(self):
+        pattern = guest_browser.secret_matcher('demo@example.test')
+        self.assertIsNotNone(pattern.fullmatch('DEMO@EXAMPLE.TEST'))
+        self.assertIsNotNone(pattern.fullmatch('\u200b'.join('DEMO@EXAMPLE.TEST')))
+        self.assertIsNone(pattern.fullmatch('another@example.test'))
+
+    def test_closed_shadow_tree_is_detected_without_blocking_user_agent_roots(self):
+        self.assertTrue(guest_browser.contains_closed_shadow({'root': {'children': [{'shadowRoots': [{'shadowRootType': 'closed'}]}]}}))
+        self.assertFalse(guest_browser.contains_closed_shadow({'shadowRoots': [{'shadowRootType': 'user-agent'}, {'shadowRootType': 'open'}]}))
+
+    def test_new_window_is_opened_before_initial_window_closes(self):
+        order = []
+        old_page = MagicMock()
+        old_page.close.side_effect = lambda: order.append('close old')
+        new_context = MagicMock()
+        new_context.new_page.side_effect = lambda: order.append('open new')
+        browser = MagicMock(contexts=[SimpleNamespace(pages=[old_page])])
+        def create(**options):
+            order.append('create context')
+            self.assertEqual(options['service_workers'], 'block')
+            return new_context
+        browser.new_context.side_effect = create
+        guest_browser.prepare_context(browser)
+        self.assertEqual(order, ['create context', 'open new', 'close old'])
+
     def test_login_masks_fields_secret_text_and_media(self):
         with tempfile.TemporaryDirectory() as directory:
             page = MagicMock()
@@ -65,6 +90,7 @@ class BrowserBoundary(unittest.TestCase):
             page.locator.side_effect = lambda selector: password if selector == 'input[type=password]:visible' else username if selector.startswith('input[type=email]:visible') else MagicMock()
             page.screenshot.return_value = PNG
             context = MagicMock(pages=[page])
+            context.new_cdp_session.return_value.send.side_effect = lambda method, params=None: {'targetInfo': {}} if method == 'Target.getTargetInfo' else {'root': {}}
             playwright = MagicMock()
             playwright.chromium.connect_over_cdp.return_value.contexts = [context]
             manager = MagicMock()
@@ -76,8 +102,9 @@ class BrowserBoundary(unittest.TestCase):
             password.fill.assert_called_once_with('secret-password')
             self.assertEqual(result, {'ok': True, 'origin': 'https://example.com'})
             self.assertNotIn('secret-email', json.dumps(result))
-            page.get_by_text.assert_any_call('secret-password', exact=False)
-            page.get_by_text.assert_any_call('secret-email', exact=False)
+            patterns = [call.args[0] for call in page.get_by_text.call_args_list]
+            self.assertTrue(any(pattern.fullmatch('SECRET-PASSWORD') for pattern in patterns))
+            self.assertTrue(any(pattern.fullmatch('secret-email') for pattern in patterns))
             self.assertEqual(len(page.screenshot.call_args.kwargs['mask']), 4)
             self.assertEqual((Path(directory) / 'privacy.json').stat().st_mode & 0o777, 0o600)
 
@@ -104,6 +131,15 @@ class BrowserBroker(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RuntimeError):
             await BrowserSession(guest).call('screen')
         guest.files.read_bytes.assert_not_awaited()
+
+    async def test_privacy_failure_never_reads_an_old_screenshot(self):
+        guest = SimpleNamespace(files=SimpleNamespace(write_text=AsyncMock(), read_bytes=AsyncMock(), remove=AsyncMock()), shell=SimpleNamespace(run=AsyncMock(return_value=SimpleNamespace(success=True, stdout='{"ok":false,"request_id":"fixed","error_code":"privacy-blocked","error":"untrusted private detail"}'))))
+        with patch('app.browser_session.secrets.token_hex', return_value='fixed'):
+            with self.assertRaises(PrivacyViewBlocked) as raised:
+                await BrowserSession(guest).call('screen')
+        self.assertNotIn('untrusted private detail', str(raised.exception))
+        guest.files.read_bytes.assert_not_awaited()
+        guest.files.remove.assert_awaited_once()
 
     async def test_login_rejects_changed_origin_before_releasing_secrets(self):
         desk = core.Desk()

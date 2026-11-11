@@ -1,6 +1,7 @@
 # Online browser preview
 
-This feature is experimental. Automated tests use fake guests and fake credentials.
+This feature is experimental. Unit tests use fake guests and fake credentials.
+A separate [isolated browser check](browser-checks.md) tests rendered dummy pages in Chrome without a VM or model.
 The model and VM were not started for this implementation, at the user's request.
 Live startup, website compatibility, downloads, and login masking still need testing with dummy accounts.
 
@@ -61,7 +62,8 @@ Browser session cookies remain inside the guest browser session.
 The online context blocks service workers and WebSockets during this preview.
 
 [Playwright screenshot masks](https://playwright.dev/python/docs/api/class-page#page-screenshot-option-mask) cover input fields.
-After credential use, masks also cover matching credential text, images, video, canvases, and iframes.
+After credential use, masks also cover matching credential text, case and spacing variants, images, video, canvases, SVG, and iframes.
+Closed shadow content blocks the private view because its rendered contents cannot be inspected safely.
 A failed masking operation returns an error. It never falls back to an unmasked desktop screenshot.
 
 This is not an absolute guarantee against a hostile website.

@@ -8,7 +8,7 @@ The server accepts text and screenshots through an OpenAI-compatible API.
 The app passed a live Chrome test with Holo4 and the Cua Linux VM.
 The test verified text chat, screenshot questions, an approved click, and approved text entry.
 Offline practice remains the default. Online browser mode and private login are experimental additions.
-Their tests use fake guests; live VM validation is still pending. See [online browser setup](docs/online-browser.md).
+Unit tests use fake guests. Isolated Chrome checks use rendered dummy pages; live VM validation is still pending. See [online browser setup](docs/online-browser.md) and [isolated browser checks](docs/browser-checks.md).
 
 ## Chat and sandbox POC
 

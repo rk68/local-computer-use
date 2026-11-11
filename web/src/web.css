@@ -575,3 +575,8 @@ footer { justify-content: flex-end; }
 .network-details summary { cursor: pointer; text-align: center; }
 .network-details p { font-size: 9px; margin: 7px 0; line-height: 1.6; }
 .private-login .login-preview-note { color: var(--ink); font-size: 10px; }
+
+/* Keep the empty-state content within narrow sidebar previews. */
+.desktop-frame .desktop { width: 100%; min-width: 0; }
+#empty-desktop { width: 100%; min-width: 0; }
+.desktop:has(.network-choice) { aspect-ratio: auto; }

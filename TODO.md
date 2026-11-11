@@ -1,9 +1,11 @@
 # UI follow-up
 
-- [ ] Review the latest UI changes after the user is ready to test.
+- [x] Review UI with isolated browser fixtures at three laptop sizes and mobile width.
+- [ ] User to review the real app when ready.
 - [x] Present three original logo concepts. See `docs/design/logo-concepts.svg`.
 - [x] Refine directions 01 and 02. See `docs/design/logo-refinements.svg`.
-- [ ] Get the user’s final logo choice before changing the current mark.
+- [x] Package all seven original references and a brief for the designer. See `docs/design/logo-references/README.md`.
+- [ ] Designer to develop the final logo. Keep the current mark until the user supplies the approved design.
 
 The model and VM must stay off during UI work unless the user requests otherwise.
 
@@ -42,5 +44,6 @@ Saved on 11 November 2026, in the order supplied:
 - [x] Add a separate completion assessment and a repeated-action guard.
 - [ ] Test online VM startup, downloads, and private login with dummy accounts when the user resumes VM testing.
 - [ ] Check long tasks against real screenshots when the local model is available.
-- [ ] Test screenshot masking against changing pages and deliberate credential exposure.
+- [x] Check rendered masks against reflected credentials, case/spacing changes, media, and closed shadow content using dummy pages.
+- [ ] Validate masking inside the actual guest, including hostile page timing and rendering changes.
 - [ ] Add CAPTCHA, MFA, and multi-account support after the basic login flow passes live tests.
