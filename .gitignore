@@ -1,0 +1,16 @@
+models/
+.cache/
+logs/
+artifacts/
+__pycache__/
+.DS_Store
+.venv/
+.tools/
+data/
+web/node_modules/
+web/dist/
+.env
+.env.*
+!.env.example
+*.sqlite3
+*.sqlite3-*

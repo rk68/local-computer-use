@@ -1,0 +1,4 @@
+.sidebar .nav { margin-top: 64px; }
+.sidebar .local-note { margin-top: auto; }
+.boot-state { padding: 3rem; color: var(--ink); }
+@media (max-width: 900px) { .sidebar .local-note { margin-top: 0; } }

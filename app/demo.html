@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Holo practice desk</title>
+<style>
+body{font:20px system-ui;background:#eff2ef;color:#18362d;padding:60px}main{max-width:620px;margin:auto;background:white;padding:40px;border-radius:20px}label{display:block;margin-top:22px}input,select,button{font:inherit;padding:12px;box-sizing:border-box;width:100%;margin-top:8px}button{background:#175c45;color:white;border:0;border-radius:8px;margin-top:28px}small{color:#576b62}#result{font-weight:bold;color:#175c45}
+</style>
+<main><small>LOCAL PRACTICE · NO EXTERNAL REQUESTS</small><h1>A tiny task, a real desktop.</h1>
+<p>Ask Holo to enter a name, select a colour, and save the note.</p>
+<form id="form"><label>Your name<input id="name" required placeholder="For example, Alex"></label>
+<label>Favourite colour<select id="colour"><option>Green</option><option>Blue</option><option>Orange</option></select></label>
+<label>A short note<input id="note" placeholder="Hello from the sandbox"></label>
+<button>Save practice note</button></form><p id="result" role="status"></p></main>
+<script>document.querySelector('#form').onsubmit=e=>{e.preventDefault();document.querySelector('#result').textContent='Saved: '+document.querySelector('#name').value+' · '+document.querySelector('#colour').value+' · '+document.querySelector('#note').value;};</script>
+</html>
