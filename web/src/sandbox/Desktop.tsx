@@ -59,7 +59,7 @@ export function Desktop({ visible, token, state, busy, command, tryMission }: Pr
             <span className="expand-hint">⤢ <span>Expand desktop</span></span>
           </button> : <div id="empty-desktop">
             <div className="desktop-glyph" aria-hidden="true"><span /></div>
-            <h3>A space to try things.</h3><p>A separate Linux desktop for Holo.</p>
+            <h3>A space to try things.</h3><p>A separate Linux desktop for Halo.</p>
             <label className="network-choice"><input type="checkbox" checked={network} disabled={busy} onChange={event => setNetwork(event.target.checked)} /> Enable web access · preview</label>
             {network ? <details className="network-details"><summary>Network access details</summary><p>This gives the VM outbound network access. Browser URL checks are not a firewall; private-network isolation is not guaranteed.</p></details> : null}
             <button id="start" className="primary" disabled={busy || state.sandbox} onClick={() => void command('/api/start', { network })}>Start sandbox <span>↗</span></button>

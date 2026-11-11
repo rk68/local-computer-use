@@ -1,5 +1,7 @@
 """Loopback-only web app. Browser requests never select a host, tool, or shell command."""
 import asyncio
+import base64
+import hashlib
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -131,7 +133,7 @@ class Runtime:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'HoloLocal/1'
+    server_version = 'Halo/1'
 
     def log_message(self, *args):
         pass  # no chat contents, session tokens, or screenshots in access logs
@@ -145,7 +147,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(data)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Content-Security-Policy', CSP)
+        csp = CSP
+        if mime == 'image/svg+xml':
+            # Only the supplied adaptive favicon's exact styles can execute.
+            styles = re.findall(rb'<style>(.*?)</style>', data, re.S)
+            hashes = ' '.join("'sha256-" + base64.b64encode(hashlib.sha256(style).digest()).decode() + "'" for style in styles)
+            csp = "default-src 'none'; style-src " + (hashes or "'none'") + "; frame-ancestors 'none'; base-uri 'none'"
+        self.send_header('Content-Security-Policy', csp)
         self.send_header('Referrer-Policy', 'no-referrer')
         self.end_headers()
         self.wfile.write(data)
@@ -181,6 +189,18 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r'/assets/[a-zA-Z0-9_.-]+\.(?:js|css)', path):
                 filename = path[1:]
                 mime = 'text/javascript; charset=utf-8' if path.endswith('.js') else 'text/css; charset=utf-8'
+            elif re.fullmatch(r'/brand/halo-(?:lockup|symbol)-(?:black|white)\.svg', path) or path == '/favicon.svg':
+                filename, mime = path[1:], 'image/svg+xml'
+            elif path == '/fonts/outfit-variable.woff2':
+                filename, mime = path[1:], 'font/woff2'
+            elif path == '/fonts/OUTFIT-OFL.txt':
+                filename, mime = path[1:], 'text/plain; charset=utf-8'
+            elif path == '/favicon.ico':
+                filename, mime = path[1:], 'image/x-icon'
+            elif path in {'/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/favicon-16.png', '/favicon-32.png', '/favicon-48.png'}:
+                filename, mime = path[1:], 'image/png'
+            elif path == '/site.webmanifest':
+                filename, mime = path[1:], 'application/manifest+json'
             else:
                 self.respond(404, {'error': 'Not found.'})
                 return
@@ -286,7 +306,7 @@ def main():
     def interrupt(*_):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupt)
-    print(f'Holo Local: {ORIGIN}', flush=True)
+    print(f'halo: {ORIGIN}', flush=True)
     LOGGER.info('Web app started on %s', ORIGIN)
     print('Chat uses Holo4 on port 8080. The VM starts only when you click Start sandbox.', flush=True)
     try:

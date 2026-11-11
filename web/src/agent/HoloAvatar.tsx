@@ -1,6 +1,6 @@
 import type { AgentMode } from './presence';
 
-// Holo is a soft, asymmetric pebble with two curious eyes.
+// Halo is a soft, asymmetric pebble with two curious eyes.
 export function HoloAvatar({ mode = 'idle', small = false }: { mode?: AgentMode; small?: boolean }) {
   return <span className={`holo-avatar ${small ? 'holo-avatar-small' : ''}`} data-mode={mode} aria-hidden="true">
     <svg viewBox="0 0 48 48" fill="none">

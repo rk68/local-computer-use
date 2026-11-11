@@ -1,6 +1,9 @@
-# Local Holo4
+# halo
 
-Run Holo4-35B-A3B Q4_K_M with llama.cpp and Apple Metal.
+A local desktop assistant powered by Holo4-35B-A3B Q4_K_M, llama.cpp, and Apple Metal.
+
+The interface uses the approved halo brand assets and self-hosted Outfit typography.
+See [the brand guide](docs/design/halo-brand-pack/README.md) and [font source](docs/design/halo-brand-pack/FONT-SOURCE.md).
 The server accepts text and screenshots through an OpenAI-compatible API.
 
 ## Current status
@@ -30,7 +33,7 @@ bash scripts/poc.sh
 Open <http://127.0.0.1:8765> in your browser.
 Chat works without a sandbox. The app sends messages to your existing local Holo4 endpoint.
 SQLite saves the last 60 text chat messages in `data/chat.sqlite3`.
-Holo receives up to six recent text turns as context. The app restores those turns after a restart.
+Halo receives up to six recent text turns as context. The app restores those turns after a restart.
 Desktop context belongs to the current VM session.
 **Clear chat** removes the saved transcript and the current conversation context.
 
@@ -51,7 +54,7 @@ To try computer use:
 3. Click **Try it** to prepare the practice task.
 4. Send the message.
 5. Inspect the proposed action and click **Approve one action** or **Reject**.
-6. Inspect each new screenshot. Holo continues the same task and proposes the next action.
+6. Inspect each new screenshot. Halo continues the same task and proposes the next action.
 7. Click **Stop & remove sandbox** after the experiment.
 
 The app creates a local QEMU VM with 4 virtual CPUs, 2 GiB RAM, and a 30 GB virtual disk.
@@ -67,8 +70,8 @@ Offline prompts restrict work to the form. Online mode uses browser controls ins
 By default, each action needs approval and expires after two minutes.
 Select **Approve all actions for me** to execute validated actions automatically in the current sandbox.
 You can enable it while an action awaits approval. Clear the checkbox to pause before the next action.
-Holo inspects a fresh screenshot after each action and continues through the parts of your request.
-For example: “Change the name to Alice and set the short note to Hello from Holo.”
+Halo inspects a fresh screenshot after each action and continues through the parts of your request.
+For example: “Change the name to Alice and set the short note to Hello from Halo.”
 Each sandbox permits 20 action attempts, including automatically approved actions.
 Automatic approval resets when you stop the sandbox.
 A separate assessment checks the screenshot, executed steps, and sandbox state. Repeated actions pause when the screen stops progressing.

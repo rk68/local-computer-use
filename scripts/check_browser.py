@@ -171,7 +171,15 @@ def ui_checks(browser, base):
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(base)
-    page.get_by_role('heading', name='Chat with Holo').wait_for()
+    page.get_by_role('heading', name='Chat with Halo').wait_for()
+    page.evaluate('document.fonts.ready')
+    assert page.title() == 'halo'
+    assert page.evaluate("document.fonts.check('600 16px Outfit')")
+    assert 'Outfit' in page.locator('body').evaluate('(el) => getComputedStyle(el).fontFamily')
+    expect(page.locator('.brand-logo-dark')).to_be_visible()
+    expect(page.locator('.brand-logo-light')).to_be_hidden()
+    for asset in ['/fonts/outfit-variable.woff2', '/favicon.svg', '/favicon.ico', '/site.webmanifest', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']:
+        assert context.request.get(base + asset).status == 200, asset
     for width, height in [(1280, 720), (1366, 768), (1440, 900)]:
         page.set_viewport_size({'width': width, 'height': height})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight'), f'Workspace overflow at {width}x{height}'
@@ -208,6 +216,9 @@ def ui_checks(browser, base):
     assert PASSWORD not in page.locator('#messages').inner_text()
     page.get_by_role('button', name='Switch to light mode').click()
     assert page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--raised').trim()") == '#f3f3f2'
+    expect(page.locator('.brand-logo-light')).to_be_visible()
+    expect(page.locator('.brand-logo-dark')).to_be_hidden()
+    page.screenshot(path=str(ROOT / 'artifacts/ui-halo-light.png'), animations='disabled')
     page.set_viewport_size({'width': 390, 'height': 844})
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     page.screenshot(path=str(ROOT / 'artifacts/ui-offline-mobile.png'), full_page=True, animations='disabled')

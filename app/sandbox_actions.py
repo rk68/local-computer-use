@@ -77,7 +77,7 @@ def model_action_in_pixels(arguments, width, height):
         for axis, size in [('x', width), ('y', height)]:
             coordinate = arguments.get(axis)
             if type(coordinate) is not int or not 0 <= coordinate <= 1000:
-                raise ValueError('Holo must return screenshot coordinates between 0 and 1000.')
+                raise ValueError('Halo must return screenshot coordinates between 0 and 1000.')
             arguments[axis] = min(size - 1, coordinate * size // 1000)
     return validate_action(arguments, width, height)
 

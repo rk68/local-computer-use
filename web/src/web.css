@@ -1,3 +1,10 @@
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/outfit-variable.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
 :root {
   color-scheme: dark;
   --bg: #090909;
@@ -31,7 +38,7 @@
   --button-ink: #ffffff;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 button, a, input, textarea { font: inherit; }
 button { cursor: pointer; border: 0; transition: background .15s, border-color .15s, color .15s; }
 button:disabled { opacity: .4; cursor: not-allowed; }
@@ -580,3 +587,16 @@ footer { justify-content: flex-end; }
 .desktop-frame .desktop { width: 100%; min-width: 0; }
 #empty-desktop { width: 100%; min-width: 0; }
 .desktop:has(.network-choice) { aspect-ratio: auto; }
+
+/* Approved halo lockups use the app theme, with a quarter-symbol clear space. */
+:root { --ink: #FBFBFA; --button: #FBFBFA; }
+:root[data-theme='light'] { --ink: #0A0A0B; --button: #0A0A0B; }
+.brand { padding: 10px; width: fit-content; flex: none; }
+.brand-logo { display: block; width: 121px; height: 40px; }
+.brand-logo-light { display: none; }
+:root[data-theme='light'] .brand-logo-dark { display: none; }
+:root[data-theme='light'] .brand-logo-light { display: block; }
+@media (max-width: 900px) {
+  .brand { padding: 9px; }
+  .brand-logo { width: 109px; height: 36px; }
+}

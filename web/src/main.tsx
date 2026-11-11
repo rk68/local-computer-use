@@ -34,7 +34,7 @@ function App() {
     void connect().catch(error => { if (!closed) setFailure(String(error.message ?? error)); });
     return () => { closed = true; };
   }, []);
-  if (!boot) return <div className="boot-state" role={failure ? 'alert' : 'status'}>{failure || 'Connecting to Holo Local…'}</div>;
+  if (!boot) return <div className="boot-state" role={failure ? 'alert' : 'status'}>{failure || 'Connecting to halo…'}</div>;
   return <Playground {...boot} />;
 }
 
@@ -167,8 +167,11 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
 
   return <>
     <aside className="sidebar">
-      <a className="brand" href="/" aria-label="Holo Local home"><span className="mark">h</span><span>holo<span className="brand-light">local</span></span></a>
-      <button className="nav active agent-nav" onClick={() => input.current?.focus()}><HoloAvatar small /><span>Holo<small>Your local assistant</small></span></button>
+      <a className="brand" href="/" aria-label="halo home">
+        <img className="brand-logo brand-logo-dark" src="/brand/halo-lockup-white.svg" width="121" height="40" alt="halo" />
+        <img className="brand-logo brand-logo-light" src="/brand/halo-lockup-black.svg" width="121" height="40" alt="halo" />
+      </a>
+      <button className="nav active agent-nav" onClick={() => input.current?.focus()}><HoloAvatar small /><span>Halo<small>Your local assistant</small></span></button>
       <div className="local-note"><span className="dot" /> Inference on your Mac</div>
     </aside>
     <main>
@@ -184,7 +187,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
       <div className="panels" data-desktop-visible={showDesktop}>
         <Desktop token={token} visible={showDesktop} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }} />
         <section className="chat-panel panel" aria-label="Chat">
-          <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with Holo</h2></div>
+          <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with Halo</h2></div>
             <div className="chat-heading-actions">
               <button id="clear-chat" className="icon-button" title="Clear chat" aria-label="Clear chat" disabled={busy || pending !== null || state.credential_request !== null || !chat.messages.length} onClick={() => void clearChat()}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -199,15 +202,15 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
               <div className={`message-row ${message.role}`} key={message.id}>
                 {message.role === 'assistant' ? <HoloAvatar /> : null}
                 <div className={`message ${message.role}`}>
-                  <div className="message-label">{message.role === 'assistant' ? 'Holo' : message.role === 'user' ? 'You' : 'Playground'}</div>
+                  <div className="message-label">{message.role === 'assistant' ? 'Halo' : message.role === 'user' ? 'You' : 'Playground'}</div>
                   {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
                 </div>
               </div>
-            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HOLO</span><h3>A little help,<br />{' '}a lot of possibility.</h3>
+            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>A little help,<br />{' '}a lot of possibility.</h3>
               <p>Talk through an idea, ask a question, or try something on the desktop.</p>
               <div className="welcome-cards">
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('What can you help me with?'); }}><span className="card-symbol" aria-hidden="true">↗</span><strong>Start a conversation</strong><span>Think something through together.</span></button>
-                <button className="welcome-card" disabled={!state.sandbox || busy} onClick={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }}><span className="card-symbol" aria-hidden="true">▧</span><strong>Try the desktop</strong><span>{state.sandbox ? 'Let Holo take the next step.' : 'Start the sandbox to get going.'}</span></button>
+                <button className="welcome-card" disabled={!state.sandbox || busy} onClick={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }}><span className="card-symbol" aria-hidden="true">▧</span><strong>Try the desktop</strong><span>{state.sandbox ? 'Let Halo take the next step.' : 'Start the sandbox to get going.'}</span></button>
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('Explain how this local playground works.'); }}><span className="card-symbol" aria-hidden="true">⌘</span><strong>Get your bearings</strong><span>A quick tour of your workspace.</span></button>
               </div>
             </div>}
@@ -231,8 +234,8 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
             }} /><span>Approve all actions for me <small>· this sandbox session</small></span></label>
             </div></details>
             <form id="chat-form" onSubmit={event => void send(event)}>
-              <label className="sr-only" htmlFor="message">Message Holo</label>
-              <textarea ref={input} id="message" rows={1} maxLength={4000} value={draft} disabled={pending !== null || state.credential_request !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Holo a question, or give it a task…" onKeyDown={event => {
+              <label className="sr-only" htmlFor="message">Message Halo</label>
+              <textarea ref={input} id="message" rows={1} maxLength={4000} value={draft} disabled={pending !== null || state.credential_request !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Halo a question, or give it a task…" onKeyDown={event => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
                   event.currentTarget.form?.requestSubmit();

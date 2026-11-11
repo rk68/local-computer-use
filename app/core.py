@@ -38,14 +38,14 @@ OWNED = ROOT / '.cache/cua-poc/owned-sandbox.json'
 MAX_ACTIONS = 20
 GUEST_MEMORY_MB = 2048
 CHAT_SYSTEM = (
-    'You are Holo, a local assistant in chat mode. Reply in natural language. '
+    'You are Halo, a local assistant in chat mode. Reply in natural language. '
     'You have no screenshot or action tools in this mode. For requests to operate '
     'the desktop, explain how to start the sandbox and enable desktop mode. '
     'Never claim to have performed a desktop action or changed a field. '
     'The sandbox has no internet access. Do not emit action JSON in chat mode.'
 )
 DESKTOP_SYSTEM = (
-    'You are Holo, a local assistant looking at a disposable Linux VM. '
+    'You are Halo, a local assistant looking at a disposable Linux VM. '
     'The VM is offline and cannot access public websites. Explain that limitation '
     'if a task requires the internet. Use desktop_reply for questions and completion reports. '
     'When asked to click, type, press a key or scroll, call the corresponding action tool. '
@@ -63,7 +63,7 @@ DESKTOP_SYSTEM = (
     'For type actions, first focus the intended input with a separate click.'
 )
 BROWSER_SYSTEM = (
-    'You are Holo, controlling a browser inside a disposable local VM. Public HTTPS web access is enabled. '
+    'You are Halo, controlling a browser inside a disposable local VM. Public HTTPS web access is enabled. '
     'Use desktop_navigate for website addresses, then inspect each fresh screenshot. '
     'Work through every part of the user goal, one tool at a time. '
     'Use desktop_replace_text for field replacements. Normalize screenshot coordinates to integers from 0 to 1000. '
@@ -110,7 +110,7 @@ def model_request(path, payload=None, timeout=180):
 
 
 def text_action(answer):
-    """Recognize Holo's action envelope when it arrives as assistant text."""
+    """Recognize Halo's action envelope when it arrives as assistant text."""
     body = answer.strip()
     fenced = re.fullmatch(r'```(?:json)?\s*\n(.*?)\n```', body, flags=re.DOTALL)
     if fenced:
@@ -127,7 +127,7 @@ def text_action(answer):
     if not isinstance(action, dict) or action.get('type') != 'desktop_action':
         return None
     arguments = {key: value for key, value in action.items() if key != 'type'}
-    arguments.setdefault('reason', 'Holo proposed this action for the sandbox.')
+    arguments.setdefault('reason', 'Halo proposed this action for the sandbox.')
     return arguments
 
 
@@ -377,7 +377,7 @@ class Desk:
                 await self.capture()
                 observations = await self.browser_observations(text) if self.browser else None
             if self.desktop_history:
-                # Holo's tool generation is more reliable with a single image
+                # Halo's tool generation is more reliable with a single image
                 # turn. Include past outcomes as context in that turn.
                 context = '\n'.join(self.desktop_history[-8:])[-3500:]
                 content[0]['text'] = f'Recent desktop context:\n{context}\n\nCurrent request:\n{text}'
@@ -408,7 +408,7 @@ class Desk:
                 if stream.cancelled.is_set() or generation != self.epoch:
                     return
                 if text_action(answer) is not None:
-                    raise RuntimeError('Holo returned an action proposal in text chat. Enable desktop mode to request actions.')
+                    raise RuntimeError('Halo returned an action proposal in text chat. Enable desktop mode to request actions.')
                 return self.record_reply(text, answer)
             except StreamCancelled:
                 self.event('Text generation cancelled.')
@@ -442,7 +442,7 @@ class Desk:
             if desktop and call['name'] == 'desktop_reply':
                 if (not isinstance(arguments, dict) or set(arguments) != {'text'}
                         or not isinstance(arguments['text'], str) or not arguments['text'].strip()):
-                    raise ValueError('Expected a text reply from Holo.')
+                    raise ValueError('Expected a text reply from Halo.')
                 return await self.finish_desktop_reply(text, arguments['text'], action_requested, generation)
             if call['name'] in TOOL_ACTIONS:
                 if not isinstance(arguments, dict) or 'action' in arguments:
@@ -462,7 +462,7 @@ class Desk:
             if action['action'] == 'navigate' and not self.browser:
                 raise ValueError('Start a new sandbox with web access to visit websites.')
             if replacement and (self.desktop_task is None or self.desktop_task.steps == 0) and action['action'] != 'replace_text':
-                raise ValueError('Holo did not propose a field replacement. No action was executed.')
+                raise ValueError('Halo did not propose a field replacement. No action was executed.')
             if self.actions >= MAX_ACTIONS:
                 raise ValueError('20-action limit reached. Stop and start a fresh sandbox.')
             self.pending = {'id': secrets.token_urlsafe(24), 'action': action,
@@ -475,7 +475,7 @@ class Desk:
         elif not answer.strip():
             raise RuntimeError('The model returned no text or action.')
         elif action_requested and (self.desktop_task is None or self.desktop_task.steps == 0):
-            answer = 'Holo did not propose an action. The sandbox was not changed.'
+            answer = 'Halo did not propose an action. The sandbox was not changed.'
         if desktop and not self.pending:
             return await self.finish_desktop_reply(text, answer, action_requested, generation)
         return self.record_reply(text, answer, desktop=desktop)
@@ -497,7 +497,7 @@ class Desk:
     async def finish_desktop_reply(self, goal, answer, action_requested, generation):
         acted = self.desktop_task is not None and self.desktop_task.steps > 0
         if action_requested and not acted:
-            answer = 'Holo did not propose an action. The sandbox was not changed.'
+            answer = 'Halo did not propose an action. The sandbox was not changed.'
         elif acted:
             self.phase = 'verifying task'
             observations = None
@@ -603,7 +603,7 @@ class Desk:
                     return self.request_login(self.desktop_task.goal, {'reason': 'This field requires the private login form.'})
                 raise ValueError('This field requires private login. Ask explicitly to sign in before entering credentials.') from None
             self.event('Guest accepted action ' + str(self.actions) + ': ' + a['action'])
-            # Guest coordinates are pixels. Past outcomes must not teach Holo
+            # Guest coordinates are pixels. Past outcomes must not teach Halo
             # to reuse pixels as its normalized coordinates on the next turn.
             outcome = {key: value for key, value in a.items() if key not in {'x', 'y'}}
             self.desktop_history.append('Approved action executed: ' + json.dumps(outcome))

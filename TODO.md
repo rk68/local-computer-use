@@ -12,13 +12,13 @@ The model and VM must stay off during UI work unless the user requests otherwise
 ## Halo rebrand — approved assets
 
 - [x] Import the supplied brand pack into `docs/design/halo-brand-pack/`, including its original guide and font licence.
-- [ ] Rename the visible product and assistant from hololocal/Holo to **halo** across the app and documentation.
-- [ ] Use the approved V2 tilted-ring symbol, outlined wordmark, and horizontal lockup from the pack.
-- [ ] Replace the current sidebar mark, page title, favicon, touch icon, and app icons.
-- [ ] Use the black and white assets according to the app's selected theme.
-- [ ] Load Outfit locally for interface typography. The pack specifies weight 600 and -0.02 em letter spacing for the lowercase wordmark.
-- [ ] Obtain the actual Outfit webfont files; the supplied wordmark is outlined and the pack includes the licence, but no font binaries.
-- [ ] Preserve `OUTFIT-OFL.txt`, check the pack's clear-space and minimum-size rules, and verify light/dark and mobile layouts.
+- [x] Rename the visible product and assistant from hololocal/Holo to **halo** across the app and documentation.
+- [x] Use the approved V2 tilted-ring symbol, outlined wordmark, and horizontal lockup from the pack.
+- [x] Replace the current sidebar mark, page title, favicon, touch icon, and app icons.
+- [x] Use the black and white assets according to the app's selected theme.
+- [x] Load Outfit locally for interface typography. The pack specifies weight 600 and -0.02 em letter spacing for the lowercase wordmark.
+- [x] Obtain the actual Outfit webfont files; the supplied wordmark is outlined and the pack includes the licence, but no font binaries.
+- [x] Preserve `OUTFIT-OFL.txt`, check the pack's clear-space and minimum-size rules, and verify light/dark and mobile layouts.
 
 The supplied brand guide is `docs/design/halo-brand-pack/README.md`.
 The approved mark uses black #0A0A0B and white #FBFBFA, with no gradient or glow on the logo itself.
@@ -53,3 +53,7 @@ Saved on 11 November 2026, in the order supplied:
 - [x] Check rendered masks against reflected credentials, case/spacing changes, media, and closed shadow content using dummy pages.
 - [ ] Validate masking inside the actual guest, including hostile page timing and rendering changes.
 - [ ] Add CAPTCHA, MFA, and multi-account support after the basic login flow passes live tests.
+
+## Deferred until after branding
+
+- [ ] Add verification-code support and multiple saved accounts.

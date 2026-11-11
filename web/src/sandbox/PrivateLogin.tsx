@@ -16,7 +16,7 @@ export function PrivateLogin({ request, busy, command }: Props) {
   return <section className="private-login" aria-label="Private website login">
     <div className="proposal-label">PRIVATE LOGIN PREVIEW · {request.origin}</div>
     <p className="login-preview-note">Use a dummy account until live login tests pass.</p>
-    <p>The account is filled only on this exact website. Holo receives a masked screenshot.</p>
+    <p>The account is filled only on this exact website. Halo receives a masked screenshot.</p>
     <form onSubmit={event => { event.preventDefault(); void submit(); }}>
       <label>Email or username<input autoComplete="off" value={username} disabled={busy} maxLength={320} onChange={event => setUsername(event.target.value)} required /></label>
       <label>Password<input type="password" autoComplete="new-password" value={password} disabled={busy} maxLength={4096} onChange={event => setPassword(event.target.value)} required /></label>
