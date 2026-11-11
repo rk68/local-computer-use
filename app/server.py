@@ -92,14 +92,21 @@ class Runtime:
         if path == '/api/clear-chat':
             desk.clear_chat()
             return {'accepted': True}
+        if path == '/api/downloads':
+            return await desk.list_downloads()
+        if path == '/api/forget-login':
+            await asyncio.to_thread(desk.vault.delete, body.get('origin'))
+            return {'accepted': True}
         if path == '/api/approval-mode':
             desk.set_approval_mode(body.get('enabled'))
             if desk.approve_all and desk.pending and not desk.busy:
                 desk.launch(desk.approve(desk.pending['id']))
             return {'accepted': True}
         operations = {
-            '/api/start': desk.start,
+            '/api/start': lambda: desk.start(body.get('network', False)),
             '/api/refresh': desk.refresh,
+            '/api/login': lambda: desk.login(body),
+            '/api/cancel-login': lambda: desk.cancel_login(body.get('id')),
             '/api/chat': lambda: desk.chat(body.get('message'), body.get('desktop') is True),
             '/api/approve': lambda: desk.approve(body.get('id')),
             '/api/reject': lambda: desk.reject(body.get('id')),

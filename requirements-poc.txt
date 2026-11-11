@@ -2,3 +2,4 @@
 cua-sandbox==0.9.1
 cua==0.21.0
 cua-cli==0.21.0
+keyring==25.7.0

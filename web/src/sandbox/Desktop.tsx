@@ -1,17 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
+import { z } from 'zod';
+import { localRequest } from '../local-api';
 import type { SandboxState } from './state';
 
 type Props = {
   visible: boolean;
+  token: string;
   state: SandboxState;
   busy: boolean;
-  command: (path: string) => Promise<boolean>;
+  command: (path: string, body?: object) => Promise<boolean>;
   tryMission: () => void;
 };
 
-export function Desktop({ visible, state, busy, command, tryMission }: Props) {
-  const blocked = busy || state.pending !== null;
+export function Desktop({ visible, token, state, busy, command, tryMission }: Props) {
+  const blocked = busy || state.pending !== null || state.credential_request !== null;
   const [expanded, setExpanded] = useState(false);
+  const [network, setNetwork] = useState(false);
+  const [downloads, setDownloads] = useState<{ name: string; size: number | null }[]>([]);
+  const [downloadError, setDownloadError] = useState('');
+  useEffect(() => { setDownloads([]); setDownloadError(''); }, [state.sandbox_id]);
+  async function checkDownloads() {
+    try {
+      const result = await localRequest('/api/downloads', z.object({ files: z.array(z.object({ name: z.string(), size: z.number().nullable() })) }), token, {});
+      setDownloads(result.files); setDownloadError('');
+    } catch (error) { setDownloadError((error as Error).message); }
+  }
   const [activity, setActivity] = useState(false);
   const desktopDialog = useRef<HTMLDialogElement>(null);
   const activityDialog = useRef<HTMLDialogElement>(null);
@@ -47,22 +60,25 @@ export function Desktop({ visible, state, busy, command, tryMission }: Props) {
           </button> : <div id="empty-desktop">
             <div className="desktop-glyph" aria-hidden="true"><span /></div>
             <h3>A space to try things.</h3><p>A separate Linux desktop for Holo.</p>
-            <button id="start" className="primary" disabled={busy || state.sandbox} onClick={() => void command('/api/start')}>Start sandbox <span>↗</span></button>
-            <div className="download-note">First start downloads the desktop image.</div>
+            <label className="network-choice"><input type="checkbox" checked={network} disabled={busy} onChange={event => setNetwork(event.target.checked)} /> Enable web access · preview</label>
+            {network ? <details className="network-details"><summary>Network access details</summary><p>This gives the VM outbound network access. Browser URL checks are not a firewall; private-network isolation is not guaranteed.</p></details> : null}
+            <button id="start" className="primary" disabled={busy || state.sandbox} onClick={() => void command('/api/start', { network })}>Start sandbox <span>↗</span></button>
+            <div className="download-note">{network ? 'Online browser · downloads stay in the VM.' : 'Offline practice · no internet access.'}</div>
           </div>}
           {state.busy || state.phase === 'stopping' ? <div className="working"><span className="spinner" /><span>{state.phase}…</span></div> : null}
         </div>
       </div>
-      <div className="desktop-footer"><span><span className="dot" /> Isolated · network off</span><span id="step-count">{state.actions} / {state.max_actions} actions</span></div>
-      <div className="practice">
+      <div className="desktop-footer"><span><span className="dot" /> {state.network ? 'Browser · web access on' : 'Isolated · network off'}</span><span id="step-count">{state.actions} / {state.max_actions} actions</span></div>
+      <div className="practice" hidden={state.network}>
         <div><strong>Try a small task</strong><p>Change the name to Alex.</p></div>
         <button id="mission" className="text-button" disabled={blocked || !state.sandbox} onClick={tryMission}>Try it ↗</button>
       </div>
       <button className="activity-toggle" onClick={() => setActivity(true)}><span>Session activity <span className="activity-count">{state.events.length}</span></span><span>↗</span></button>
+      {state.network ? <div className="guest-downloads"><button className="text-button" disabled={blocked} onClick={() => void checkDownloads()}>Check guest downloads ↻</button>{downloads.map(file => <div className="guest-file" key={file.name}><span aria-hidden="true">▤</span><div><strong>{file.name}</strong><small>{file.size === null ? 'File in sandbox' : `${Math.ceil(file.size / 1024)} KB · in sandbox`}</small></div></div>)}{downloadError ? <p role="alert">{downloadError}</p> : null}</div> : null}
       <div className="desktop-caption">{state.screen ? 'Click the preview to take a closer look.' : 'Your Mac stays separate from this workspace.'}</div>
     </section>
     <dialog ref={desktopDialog} className="desktop-dialog" aria-labelledby="desktop-title" onCancel={() => setExpanded(false)} onClose={() => setExpanded(false)}>
-      <div className="dialog-heading"><div><h2 id="desktop-title">Sandbox desktop</h2><p>{state.pending ? 'Paused for approval · screenshot held for review' : busy ? 'Working · updates after each action' : 'Live view · refreshes every 2 seconds'}</p></div><button className="dialog-close" aria-label="Close desktop" onClick={() => setExpanded(false)}>×</button></div>
+      <div className="dialog-heading"><div><h2 id="desktop-title">Sandbox desktop</h2><p>{state.pending || state.credential_request ? 'Paused for approval · screenshot held for review' : busy ? 'Working · updates after each action' : 'Live view · refreshes every 2 seconds'}</p></div><button className="dialog-close" aria-label="Close desktop" onClick={() => setExpanded(false)}>×</button></div>
       <div className="expanded-screen">{state.screen ? <img src={state.screen} alt="Expanded Linux sandbox desktop" /> : <p>Sandbox stopped.</p>}</div>
       <div className="dialog-footer"><span>View only · actions run through chat</span><button className="secondary" disabled={blocked || !state.sandbox} onClick={() => void command('/api/refresh')}>Refresh screenshot</button></div>
     </dialog>

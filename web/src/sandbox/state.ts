@@ -3,6 +3,7 @@ import { z } from 'zod';
 const target = { x: z.number().int().nonnegative(), y: z.number().int().nonnegative() };
 const reason = z.string();
 const action = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('navigate'), url: z.string(), reason }),
   z.object({ action: z.literal('click'), ...target, reason }),
   z.object({ action: z.literal('type'), text: z.string(), reason }),
   z.object({ action: z.literal('replace_text'), ...target, text: z.string(), reason }),
@@ -22,6 +23,9 @@ export const sandboxState = z.object({
   actions: z.number().int().nonnegative(),
   max_actions: z.number().int().positive(),
   approve_all: z.boolean(),
+  network: z.boolean(),
+  browser_origin: z.string().nullable(),
+  credential_request: z.object({ id: z.string(), origin: z.string(), reason: z.string() }).nullable(),
   task: z.object({ goal: z.string(), steps: z.number().int().nonnegative() }).nullable(),
 });
 
@@ -30,6 +34,8 @@ export type SandboxAction = z.infer<typeof action>;
 
 export function actionDescription(proposal: SandboxAction): string {
   switch (proposal.action) {
+    case 'navigate':
+      return `Open ${proposal.url} in the guest browser.`;
     case 'replace_text':
       return `Replace the field at (${proposal.x}, ${proposal.y}) with ${JSON.stringify(proposal.text)}.`;
     case 'click':

@@ -1,7 +1,9 @@
 # UI follow-up
 
 - [ ] Review the latest UI changes after the user is ready to test.
-- [ ] After the current UI work, design a more distinctive hololocal brand logo.
+- [x] Present three original logo concepts. See `docs/design/logo-concepts.svg`.
+- [x] Refine directions 01 and 02. See `docs/design/logo-refinements.svg`.
+- [ ] Get the user’s final logo choice before changing the current mark.
 
 The model and VM must stay off during UI work unless the user requests otherwise.
 
@@ -26,3 +28,19 @@ Saved on 11 November 2026, in the order supplied:
 5. [Bold marks and wordmarks](docs/design/logo-references/reference-05.png)
 6. [Geometric marks on gradient backgrounds](docs/design/logo-references/reference-06.png)
 7. [Rounded letterforms and cutouts](docs/design/logo-references/reference-07.png)
+
+## Further visual polish
+
+- [ ] Make the input glow brighter: purple and pink, with an optional soft yellow accent or mixed colours.
+
+## Online browser and reliability
+
+- [x] Add an explicit web-access option. Keep offline mode as the default.
+- [x] Keep browser downloads inside the VM and show file cards.
+- [x] Add origin-scoped private login forms and optional macOS Keychain storage.
+- [x] Mask inputs, known credential text, and media after credential use.
+- [x] Add a separate completion assessment and a repeated-action guard.
+- [ ] Test online VM startup, downloads, and private login with dummy accounts when the user resumes VM testing.
+- [ ] Check long tasks against real screenshots when the local model is available.
+- [ ] Test screenshot masking against changing pages and deliberate credential exposure.
+- [ ] Add CAPTCHA, MFA, and multi-account support after the basic login flow passes live tests.

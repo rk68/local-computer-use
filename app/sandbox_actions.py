@@ -10,6 +10,7 @@ COORDINATES = {
           'description': 'Vertical position normalized across the screenshot'},
 }
 ACTION_FIELDS = {
+    'navigate': {'url': {'type': 'string', 'description': 'A public HTTPS website URL'}},
     'click': COORDINATES,
     'type': {'text': {'type': 'string'}},
     'replace_text': {**COORDINATES, 'text': {'type': 'string', 'description': 'The complete new field value'}},
@@ -56,6 +57,9 @@ def validate_action(action, width, height):
         for axis, maximum in [('x', width), ('y', height)]:
             if type(action[axis]) is not int or not 0 <= action[axis] < maximum:
                 raise ValueError('Coordinates must lie inside the guest screenshot.')
+    if kind == 'navigate':
+        from app.credential_vault import website_origin
+        website_origin(action['url'])
     if 'text' in ACTION_FIELDS[kind]:
         text = action['text']
         if not isinstance(text, str) or not 1 <= len(text) <= 500 or any(ord(c) < 32 or ord(c) == 127 for c in text):
@@ -77,3 +81,10 @@ def model_action_in_pixels(arguments, width, height):
             arguments[axis] = min(size - 1, coordinate * size // 1000)
     return validate_action(arguments, width, height)
 
+
+LOGIN_TOOL = {'type': 'function', 'function': {
+    'name': 'desktop_request_login',
+    'description': 'Ask the user to privately fill login fields on the current website. Never ask for secrets in chat.',
+    'parameters': {'type': 'object', 'additionalProperties': False,
+                   'properties': {'reason': {'type': 'string'}}, 'required': ['reason']},
+}}

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { toChatMessages } from './conversation/messages';
 import { useLocalChat } from './conversation/use-local-chat';
 import { commandResponse, localRequest, modelResponse, sessionResponse } from './local-api';
+import { PrivateLogin } from './sandbox/PrivateLogin';
 import { Desktop } from './sandbox/Desktop';
 import { actionDescription } from './sandbox/state';
 import { playgroundState, type PlaygroundState } from './playground-state';
@@ -143,7 +144,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || busy || pending) return;
+    if (!text || busy || pending || state.credential_request) return;
     setDraft('');
     setError('');
     setDismissedError(null);
@@ -181,11 +182,11 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
       </section>
       {visibleError && visibleError !== dismissedError ? <Notice message={visibleError} onDismiss={() => setDismissedError(visibleError)} /> : null}
       <div className="panels" data-desktop-visible={showDesktop}>
-        <Desktop visible={showDesktop} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft('Change the name to Alex'); }} />
+        <Desktop token={token} visible={showDesktop} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }} />
         <section className="chat-panel panel" aria-label="Chat">
           <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with Holo</h2></div>
             <div className="chat-heading-actions">
-              <button id="clear-chat" className="icon-button" title="Clear chat" aria-label="Clear chat" disabled={busy || pending !== null || !chat.messages.length} onClick={() => void clearChat()}>
+              <button id="clear-chat" className="icon-button" title="Clear chat" aria-label="Clear chat" disabled={busy || pending !== null || state.credential_request !== null || !chat.messages.length} onClick={() => void clearChat()}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
               <button id="toggle-desktop" className="icon-button" title={showDesktop ? 'Hide desktop sidebar' : 'Show desktop sidebar'} aria-label={showDesktop ? 'Hide desktop sidebar' : 'Show desktop sidebar'} aria-controls="desktop-sidebar" aria-expanded={showDesktop} onClick={() => setShowDesktop(visible => !visible)}>
@@ -206,12 +207,13 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
               <p>Talk through an idea, ask a question, or try something on the desktop.</p>
               <div className="welcome-cards">
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('What can you help me with?'); }}><span className="card-symbol" aria-hidden="true">↗</span><strong>Start a conversation</strong><span>Think something through together.</span></button>
-                <button className="welcome-card" disabled={!state.sandbox || busy} onClick={() => { setDesktop(true); fillDraft('Change the name to Alex'); }}><span className="card-symbol" aria-hidden="true">▧</span><strong>Try the desktop</strong><span>{state.sandbox ? 'Let Holo take the next step.' : 'Start the sandbox to get going.'}</span></button>
+                <button className="welcome-card" disabled={!state.sandbox || busy} onClick={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }}><span className="card-symbol" aria-hidden="true">▧</span><strong>Try the desktop</strong><span>{state.sandbox ? 'Let Holo take the next step.' : 'Start the sandbox to get going.'}</span></button>
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('Explain how this local playground works.'); }}><span className="card-symbol" aria-hidden="true">⌘</span><strong>Get your bearings</strong><span>A quick tour of your workspace.</span></button>
               </div>
             </div>}
             <AgentPresence mode={presence} desktop={desktop} />
           </div>
+          {state.credential_request ? <PrivateLogin key={state.credential_request.id} request={state.credential_request} busy={busy} command={command} /> : null}
           {pending ? <div id="proposal" className="proposal">
             <div className="proposal-label">YOUR APPROVAL NEEDED</div><p>{pending.action.reason}</p><pre>{actionDescription(pending.action)}</pre>
             <div className="approval-buttons">
@@ -230,7 +232,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
             </div></details>
             <form id="chat-form" onSubmit={event => void send(event)}>
               <label className="sr-only" htmlFor="message">Message Holo</label>
-              <textarea ref={input} id="message" rows={1} maxLength={4000} value={draft} disabled={pending !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Holo a question, or give it a task…" onKeyDown={event => {
+              <textarea ref={input} id="message" rows={1} maxLength={4000} value={draft} disabled={pending !== null || state.credential_request !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Holo a question, or give it a task…" onKeyDown={event => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
                   event.currentTarget.form?.requestSubmit();
@@ -241,7 +243,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
                   void chat.stopGeneration().catch(failure => setError((failure as Error).message));
                 }}>■</button>
               ) : (
-                <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || !draft.trim()}>↑</button>
+                <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || state.credential_request !== null || !draft.trim()}>↑</button>
               )}
             </form>
           </div>

@@ -71,6 +71,8 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
         self.qemu.start()
         self.model = patch.object(core, 'model_request', return_value=model_reply())
         self.model.start()
+        self.verifier = patch.object(core, 'verify_completion', new=AsyncMock(return_value='The requested changes are visible.'))
+        self.verifier.start()
         self.desk = core.Desk()
         self.guest = fake_guest()
         self.desk.sb = self.guest
@@ -78,6 +80,7 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
         self.action = {'action': 'click', 'x': 100, 'y': 200, 'reason': 'Focus name field.'}
 
     async def asyncTearDown(self):
+        self.verifier.stop()
         self.model.stop()
         self.patcher.stop()
         self.compat.stop()
@@ -274,6 +277,33 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ValueError):
                 await self.desk.chat('Do two clicks', True)
         self.assertIsNone(self.desk.pending)
+
+    async def test_online_mode_requires_explicit_start_preference(self):
+        self.desk.sb = None
+        browser = SimpleNamespace(prepare=AsyncMock(), call=AsyncMock(return_value=b'\x89PNG\r\n\x1a\nimage'), origin=None)
+        sdk = SimpleNamespace(Image=SimpleNamespace(from_registry=lambda reference: reference),
+                              Sandbox=SimpleNamespace(create=AsyncMock(return_value=self.guest)))
+        with patch.dict('sys.modules', {'cua_sandbox': sdk}), patch.object(core, 'BrowserSession', return_value=browser), patch.object(core.asyncio, 'sleep', new=AsyncMock()):
+            await self.desk.start(network=True)
+        self.assertEqual(sdk.Sandbox.create.call_args.kwargs['network'], 'default')
+        self.assertTrue(self.desk.network)
+        browser.prepare.assert_awaited_once()
+        self.guest.shell.run.assert_not_awaited()
+
+    async def test_unverified_completion_is_not_reported_as_success(self):
+        self.desk.set_approval_mode(True)
+        with patch.object(core, 'model_request', side_effect=[model_action(self.action), model_reply('All done')]), patch.object(core, 'verify_completion', new=AsyncMock(side_effect=RuntimeError('Not all requested changes are visible'))):
+            with self.assertRaisesRegex(RuntimeError, 'Not all requested'):
+                await self.desk.chat('Click name', True)
+        self.assertNotIn('All done', str(self.desk.messages))
+
+    async def test_free_text_completion_cannot_skip_verification(self):
+        self.desk.set_approval_mode(True)
+        response = {'choices': [{'message': {'content': 'All done'}}]}
+        with patch.object(core, 'model_request', side_effect=[model_action(self.action), response]), patch.object(core, 'verify_completion', new=AsyncMock(side_effect=RuntimeError('Result is missing'))):
+            with self.assertRaisesRegex(RuntimeError, 'Result is missing'):
+                await self.desk.chat('Click name', True)
+        self.assertNotIn('All done', str(self.desk.messages))
 
     async def test_create_enforces_local_vm_no_network_and_no_mounts(self):
         self.desk.sb = None

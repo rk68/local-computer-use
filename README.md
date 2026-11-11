@@ -7,7 +7,8 @@ The server accepts text and screenshots through an OpenAI-compatible API.
 
 The app passed a live Chrome test with Holo4 and the Cua Linux VM.
 The test verified text chat, screenshot questions, an approved click, and approved text entry.
-The guest runs offline. Requests to visit public websites receive an explanation in chat.
+Offline practice remains the default. Online browser mode and private login are experimental additions.
+Their tests use fake guests; live VM validation is still pending. See [online browser setup](docs/online-browser.md).
 
 ## Chat and sandbox POC
 
@@ -54,13 +55,13 @@ To try computer use:
 
 The app creates a local QEMU VM with 4 virtual CPUs, 2 GiB RAM, and a 30 GB virtual disk.
 The app sets Cua's host memory reserve to 4 GiB unless you supply `CUA_VM_MIN_AVAILABLE_MB`.
-The guest network is disabled. This first POC uses an offline practice form.
+The guest network is disabled by default. Select **Enable web access** before starting a new VM for online browser mode.
 The app does not mount host folders or connect to an existing desktop.
 It does not install a host input driver, register the Mac for remote access, or call a cloud model.
 The model can propose clicks, text entry, field replacement, selected keys, and scrolling.
 An approved field replacement selects the current value and types the new value.
 A fixed setup command opens the practice form inside the guest.
-The prompt restricts work to the form. The enforced isolation boundary is the entire guest VM.
+Offline prompts restrict work to the form. Online mode uses browser controls inside the same VM boundary.
 
 By default, each action needs approval and expires after two minutes.
 Select **Approve all actions for me** to execute validated actions automatically in the current sandbox.
@@ -69,6 +70,7 @@ Holo inspects a fresh screenshot after each action and continues through the par
 For example: “Change the name to Alice and set the short note to Hello from Holo.”
 Each sandbox permits 20 action attempts, including automatically approved actions.
 Automatic approval resets when you stop the sandbox.
+A separate screenshot assessment checks completion. Three identical actions pause the task.
 Stop discards pending proposals and removes the guest. An input event already sent cannot be undone.
 Ctrl+C also attempts guest cleanup. Closing the browser tab does not stop the server.
 
