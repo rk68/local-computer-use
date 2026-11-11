@@ -168,6 +168,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   return <>
     <aside className="sidebar">
       <a className="brand" href="/" aria-label="halo home">
+        <span className="brand-orbit" aria-hidden="true"><img src="/brand/halo-symbol-white.svg" width="40" height="40" alt="" /></span>
         <img className="brand-logo brand-logo-dark" src="/brand/halo-lockup-white.svg" width="121" height="40" alt="halo" />
         <img className="brand-logo brand-logo-light" src="/brand/halo-lockup-black.svg" width="121" height="40" alt="halo" />
       </a>

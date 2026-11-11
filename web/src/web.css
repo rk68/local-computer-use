@@ -701,3 +701,20 @@ main > .app-notice { margin: 12px 28px 0; flex: none; }
   .model-pill { padding-left: 0; font-size: 10px; }
   .breadcrumb { font-size: 10px; }
 }
+
+/* Animate only the approved ring; the wordmark stays still. */
+.brand { position: relative; }
+.brand .brand-logo { clip-path: inset(0 0 0 33.09%); }
+.brand-orbit { position: absolute; left: 10px; top: 0; bottom: 0; margin-block: auto; width: 40px; height: 40px; display: block; }
+.brand-orbit img { display: block; width: 100%; height: 100%; }
+.brand:focus-visible .brand-orbit { animation: brand-orbit-greeting 900ms cubic-bezier(.22, .8, .3, 1) 1; }
+@media (hover: hover) and (pointer: fine) {
+  .brand:hover .brand-orbit { animation: brand-orbit-greeting 900ms cubic-bezier(.22, .8, .3, 1) 1; }
+}
+@keyframes brand-orbit-greeting {
+  0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+  35% { transform: translateY(-2px) rotate(18deg) scale(1.06); }
+  65% { transform: translateY(0) rotate(-7deg) scale(1.02); }
+}
+@media (max-width: 900px) { .brand-orbit { left: 9px; width: 36px; height: 36px; } }
+@media (prefers-reduced-motion: reduce) { .brand .brand-orbit { animation: none !important; } }
