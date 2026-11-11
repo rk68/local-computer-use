@@ -180,6 +180,8 @@ def ui_checks(browser, base):
     expect(page.locator('.brand-logo-light')).to_be_hidden()
     for asset in ['/fonts/outfit-variable.woff2', '/favicon.svg', '/favicon.ico', '/site.webmanifest', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']:
         assert context.request.get(base + asset).status == 200, asset
+    expect(page.locator('#desktop-sidebar')).to_be_hidden()
+    page.get_by_role('button', name='Show virtual desktop', exact=True).click()
     for width, height in [(1280, 720), (1366, 768), (1440, 900)]:
         page.set_viewport_size({'width': width, 'height': height})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight'), f'Workspace overflow at {width}x{height}'
@@ -188,10 +190,10 @@ def ui_checks(browser, base):
         empty = page.locator('#empty-desktop').bounding_box()
         assert empty['x'] >= preview['x'] - 1 and empty['x'] + empty['width'] <= preview['x'] + preview['width'] + 1, 'Desktop empty-state content is clipped'
     page.set_viewport_size({'width': 1366, 'height': 768})
-    page.get_by_role('button', name='Hide desktop sidebar').click()
+    page.get_by_role('button', name='Hide virtual desktop').click()
     expect(page.locator('#desktop-sidebar')).to_be_hidden()
     page.reload()
-    page.get_by_role('button', name='Show desktop sidebar').click()
+    page.get_by_role('button', name='Show virtual desktop').click()
     expect(page.locator('#desktop-sidebar')).to_be_visible()
     textbox = page.locator('#message')
     before = textbox.bounding_box()['height']
@@ -216,8 +218,9 @@ def ui_checks(browser, base):
     assert PASSWORD not in page.locator('#messages').inner_text()
     page.get_by_role('button', name='Switch to light mode').click()
     assert page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--raised').trim()") == '#f3f3f2'
-    expect(page.locator('.brand-logo-light')).to_be_visible()
-    expect(page.locator('.brand-logo-dark')).to_be_hidden()
+    expect(page.locator('.brand-logo-dark')).to_be_visible()
+    expect(page.locator('.brand-logo-light')).to_be_hidden()
+    assert page.locator('.sidebar').evaluate('(el) => getComputedStyle(el).backgroundColor') == 'rgb(8, 8, 8)'
     page.screenshot(path=str(ROOT / 'artifacts/ui-halo-light.png'), animations='disabled')
     page.set_viewport_size({'width': 390, 'height': 844})
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')

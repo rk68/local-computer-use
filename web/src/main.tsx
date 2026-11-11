@@ -48,7 +48,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   const [connectionError, setConnectionError] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
   const [showDesktop, setShowDesktop] = useState(() => {
-    try { return localStorage.getItem('holo-desktop-visible') !== 'false'; }
+    try { return localStorage.getItem('holo-desktop-visible') === 'true'; }
     catch { return true; }
   });
   const latestRequest = useRef(0);
@@ -172,27 +172,24 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
         <img className="brand-logo brand-logo-light" src="/brand/halo-lockup-black.svg" width="121" height="40" alt="halo" />
       </a>
       <button className="nav active agent-nav" onClick={() => input.current?.focus()}><HoloAvatar small /><span>Halo<small>Your local assistant</small></span></button>
+      <button className={`nav desktop-nav ${showDesktop ? 'active' : ''}`} aria-controls="desktop-sidebar" aria-expanded={showDesktop} onClick={() => setShowDesktop(visible => !visible)}><span className="nav-icon" aria-hidden="true">▧</span><span>Virtual desktop</span><span className={`dot ${state.sandbox ? 'on' : 'off'}`} /></button>
       <div className="local-note"><span className="dot" /> Inference on your Mac</div>
     </aside>
     <main>
-      <header><div className="breadcrumb">Workspace <span>/</span> Playground</div><div className="header-actions"><div className="private-pill">Local session</div><ThemeToggle /></div></header>
-      <section className="heading">
-        <div className="heading-copy"><h1>Your workspace</h1><p>A little help. Entirely local.</p></div>
-        <div className="model-pill"><span className={`dot ${model === 'connected' ? 'on' : model === 'offline' ? 'off' : ''}`} />
+      <header><div className="breadcrumb">Your workspace</div><div className="header-actions"><div className="model-pill"><span className={`dot ${model === 'connected' ? 'on' : model === 'offline' ? 'off' : ''}`} />
           <span id="model-status">{model === 'checking' ? 'Checking Holo4…' : model === 'connected' ? 'Holo4 connected' : 'Holo4 offline'}</span>
           <button id="model-check" className="icon-button" aria-label="Check model connection" onClick={() => void checkModel()}>↻</button>
-        </div>
-      </section>
+        </div><ThemeToggle /></div></header>
       {visibleError && visibleError !== dismissedError ? <Notice message={visibleError} onDismiss={() => setDismissedError(visibleError)} /> : null}
       <div className="panels" data-desktop-visible={showDesktop}>
-        <Desktop token={token} visible={showDesktop} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }} />
+        <Desktop token={token} visible={showDesktop} onClose={() => setShowDesktop(false)} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }} />
         <section className="chat-panel panel" aria-label="Chat">
           <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with Halo</h2></div>
             <div className="chat-heading-actions">
               <button id="clear-chat" className="icon-button" title="Clear chat" aria-label="Clear chat" disabled={busy || pending !== null || state.credential_request !== null || !chat.messages.length} onClick={() => void clearChat()}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
-              <button id="toggle-desktop" className="icon-button" title={showDesktop ? 'Hide desktop sidebar' : 'Show desktop sidebar'} aria-label={showDesktop ? 'Hide desktop sidebar' : 'Show desktop sidebar'} aria-controls="desktop-sidebar" aria-expanded={showDesktop} onClick={() => setShowDesktop(visible => !visible)}>
+              <button id="toggle-desktop" className="icon-button" title={showDesktop ? 'Hide virtual desktop' : 'Show virtual desktop'} aria-label={showDesktop ? 'Hide virtual desktop' : 'Show virtual desktop'} aria-controls="desktop-sidebar" aria-expanded={showDesktop} onClick={() => setShowDesktop(visible => !visible)}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /><path d={showDesktop ? 'm9 9 3 3-3 3' : 'm11 9-3 3 3 3'} strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
             </div>
@@ -252,7 +249,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
           </div>
         </section>
       </div>
-      <footer><button id="stop" className="stop" disabled={state.phase === 'stopping' || !state.sandbox && !state.busy && state.phase !== 'cleanup required'} onClick={() => void command('/api/stop')}>■ &nbsp; Stop &amp; remove sandbox</button></footer>
+
     </main>
   </>;
 }
