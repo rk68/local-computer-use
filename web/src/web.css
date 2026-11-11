@@ -452,30 +452,9 @@ h1 { font-size: 21px; }
   .welcome-character { display: none; }
 }
 
-/* Static ambient light adds depth without continuous animation or blur layers. */
-.chat-panel {
-  border-color: #ffffff0a;
-  box-shadow: 0 0 0 1px #ffffff03,
-    -10px 12px 36px -18px #ffc7ae3d,
-    12px -8px 38px -18px #c4b5fd33,
-    0 16px 42px -24px #00000099;
-  transition: border-color .2s, box-shadow .2s;
-}
-.chat-panel:focus-within {
-  border-color: #ffffff19;
-  box-shadow: 0 0 0 1px #ffffff05,
-    -10px 12px 40px -18px #ffc7ae47,
-    12px -8px 42px -18px #c4b5fd40,
-    0 16px 42px -24px #00000099;
-}
-:root[data-theme='light'] .chat-panel {
-  border-color: #ffffff;
-  box-shadow: 0 0 0 1px #ffffff80,
-    -10px 12px 38px -18px #e6b7a16b,
-    12px -8px 42px -18px #c4b5fd66,
-    0 14px 36px -22px #00000026;
-}
-:root[data-theme='light'] .chat-panel:focus-within { border-color: #d8d5df; }
+/* Keep ambient light close to the composer; the panel has a neutral shadow. */
+.chat-panel { border-color: transparent; box-shadow: 0 4px 18px #0000000d; }
+:root[data-theme='light'] .chat-panel { box-shadow: 0 4px 18px #00000008; }
 footer { justify-content: flex-end; }
 
 /* Give Holo a place beside the bubble, like a conversation partner. */
@@ -537,3 +516,31 @@ footer { justify-content: flex-end; }
 .notice-copy p { margin: 3px 0 0; font-size: 11px; line-height: 1.7; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 .notice-dismiss { width: 26px; height: 26px; flex: none; border-color: transparent; background: transparent; }
 @media (max-width: 480px) { .app-notice { padding: 12px; gap: 9px; border-radius: 14px; } }
+
+/* Static shadows keep the input halo inexpensive to render. */
+#chat-form {
+  box-shadow: 0 0 0 1px #ffffff03,
+    -7px 5px 23px -10px #ffc7ae38,
+    7px -4px 24px -10px #c4b5fd3d,
+    0 5px 14px -8px #00000040;
+}
+#chat-form:focus-within {
+  border-color: #bdb5c75c;
+  box-shadow: 0 0 0 1px #ffffff08,
+    -7px 5px 26px -9px #ffc7ae4d,
+    7px -4px 28px -9px #c4b5fd57,
+    0 5px 14px -8px #00000040;
+}
+:root[data-theme='light'] #chat-form {
+  box-shadow: 0 0 0 1px #ffffff80,
+    -7px 5px 24px -10px #e6b7a15c,
+    7px -4px 26px -10px #c4b5fd61,
+    0 5px 14px -8px #00000014;
+}
+:root[data-theme='light'] #chat-form:focus-within {
+  border-color: #c5b9cf;
+  box-shadow: 0 0 0 1px #ffffff80,
+    -7px 5px 28px -9px #e6b7a170,
+    7px -4px 30px -9px #c4b5fd7a,
+    0 5px 14px -8px #00000014;
+}
