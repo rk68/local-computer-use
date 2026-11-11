@@ -79,6 +79,10 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   useEffect(() => {
     if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight;
   }, [chat.messages]);
+  const serverTranscript = JSON.stringify(state.messages);
+  useEffect(() => {
+    if (!generating && !state.busy) chat.setMessages(toChatMessages(state.messages));
+  }, [serverTranscript, generating, state.busy, chat.setMessages]);
 
   async function command(path: string, body: object = {}) {
     setCommandBusy(true);
@@ -173,6 +177,11 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
           </div> : null}
           <div className="composer-area">
             <label className="mode"><input type="checkbox" id="desktop-mode" checked={desktop} disabled={busy || !state.sandbox} onChange={event => setDesktop(event.target.checked)} /><span>Include sandbox screenshot &amp; propose actions</span></label>
+            <label className="mode"><input type="checkbox" id="approve-all" checked={state.approve_all} disabled={commandBusy || !state.sandbox || state.phase === 'stopping'} onChange={event => {
+              const enabled = event.target.checked;
+              setState(current => ({ ...current, approve_all: enabled }));
+              void command('/api/approval-mode', { enabled }).then(ok => { if (!ok) void refresh(); });
+            }} /><span>Approve all actions for me <small>· this sandbox session</small></span></label>
             <form id="chat-form" onSubmit={event => void send(event)}>
               <label className="sr-only" htmlFor="message">Message Holo</label>
               <textarea ref={input} id="message" rows={2} maxLength={4000} value={draft} disabled={pending !== null} onChange={event => setDraft(event.target.value)} placeholder="Message Holo…" onKeyDown={event => {
@@ -193,7 +202,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
           </div>
         </section>
       </div>
-      <footer><span>Review each action before it runs.</span><button id="stop" className="stop" disabled={state.phase === 'stopping' || !state.sandbox && !state.busy && state.phase !== 'cleanup required'} onClick={() => void command('/api/stop')}>■ &nbsp; Stop &amp; remove sandbox</button></footer>
+      <footer><span>{state.approve_all ? 'Validated actions run automatically in this sandbox.' : 'Review each action before it runs.'}</span><button id="stop" className="stop" disabled={state.phase === 'stopping' || !state.sandbox && !state.busy && state.phase !== 'cleanup required'} onClick={() => void command('/api/stop')}>■ &nbsp; Stop &amp; remove sandbox</button></footer>
     </main>
   </>;
 }

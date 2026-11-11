@@ -31,6 +31,12 @@ def model_action(action):
             'name': 'desktop_action', 'arguments': json.dumps(action)}}]}}]}
 
 
+def model_reply(text='Done.'):
+    response = model_action({'text': text})
+    response['choices'][0]['message']['tool_calls'][0]['function']['name'] = 'desktop_reply'
+    return response
+
+
 class ActionValidation(unittest.TestCase):
     def test_forbids_host_shell_and_unexpected_fields(self):
         for action in [
@@ -63,6 +69,8 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
         self.logger.start()
         self.qemu = patch.object(core.shutil, 'which', return_value='/test/qemu')
         self.qemu.start()
+        self.model = patch.object(core, 'model_request', return_value=model_reply())
+        self.model.start()
         self.desk = core.Desk()
         self.guest = fake_guest()
         self.desk.sb = self.guest
@@ -70,6 +78,7 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
         self.action = {'action': 'click', 'x': 100, 'y': 200, 'reason': 'Focus name field.'}
 
     async def asyncTearDown(self):
+        self.model.stop()
         self.patcher.stop()
         self.compat.stop()
         self.logger.stop()
@@ -79,6 +88,59 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
     def pending(self, age=0):
         self.desk.pending = {'id': 'approval-123', 'action': self.action,
                              'epoch': self.desk.epoch, 'created': time.time() - age}
+
+    async def test_manual_task_continues_to_second_action(self):
+        with patch.object(core, 'model_request', side_effect=[
+                model_action(self.action), model_action(self.action), model_reply()]):
+            await self.desk.chat('Click twice', True)
+            self.assertEqual(self.desk.actions, 0)
+            await self.desk.approve(self.desk.pending['id'])
+            self.assertEqual(self.desk.actions, 1)
+            self.assertIsNotNone(self.desk.pending)
+            await self.desk.approve(self.desk.pending['id'])
+        self.assertEqual(self.desk.actions, 2)
+        self.assertIsNone(self.desk.pending)
+        self.assertIsNone(self.desk.desktop_task)
+        self.assertEqual(sum(m['role'] == 'user' for m in self.desk.messages), 1)
+
+    async def test_automatic_task_executes_each_validated_step(self):
+        self.desk.set_approval_mode(True)
+        with patch.object(core, 'model_request', side_effect=[
+                model_action(self.action), model_action(self.action), model_reply()]):
+            await self.desk.chat('Click twice', True)
+        self.assertEqual(self.desk.actions, 2)
+        self.assertIsNone(self.desk.pending)
+        self.assertIsNone(self.desk.desktop_task)
+        self.assertEqual(self.guest.mouse.click.await_count, 2)
+
+    async def test_automatic_mode_still_rejects_invalid_actions(self):
+        self.desk.set_approval_mode(True)
+        response = model_action({'action': 'shell', 'command': 'bad', 'reason': 'test'})
+        with patch.object(core, 'model_request', return_value=response), self.assertRaises(ValueError):
+            await self.desk.chat('Click twice', True)
+        self.assertEqual(self.desk.actions, 0)
+        self.guest.mouse.click.assert_not_awaited()
+
+    async def test_unchecking_during_inference_pauses_before_execution(self):
+        self.desk.set_approval_mode(True)
+        def response(*_):
+            self.desk.set_approval_mode(False)
+            return model_action(self.action)
+        with patch.object(core, 'model_request', side_effect=response):
+            await self.desk.chat('Click name', True)
+        self.assertIsNotNone(self.desk.pending)
+        self.guest.mouse.click.assert_not_awaited()
+
+    async def test_stop_resets_automatic_approval_and_task(self):
+        self.desk.set_approval_mode(True)
+        with patch.object(core, 'model_request', return_value=model_action(self.action)):
+            self.desk.set_approval_mode(False)
+            await self.desk.chat('Click name', True)
+        self.desk.set_approval_mode(True)
+        await self.desk.stop()
+        self.assertFalse(self.desk.approve_all)
+        self.assertIsNone(self.desk.desktop_task)
+        self.assertIsNone(self.desk.pending)
 
     async def test_proposal_cannot_execute_without_approval(self):
         with patch.object(core, 'model_request', return_value=model_action(self.action)):

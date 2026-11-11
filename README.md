@@ -49,7 +49,7 @@ To try computer use:
 3. Click **Try it** to prepare the practice task.
 4. Send the message.
 5. Inspect the proposed action and click **Approve one action** or **Reject**.
-6. Inspect the new screenshot. Ask for the next step to continue.
+6. Inspect each new screenshot. Holo continues the same task and proposes the next action.
 7. Click **Stop & remove sandbox** after the experiment.
 
 The app creates a local QEMU VM with 4 virtual CPUs, 2 GiB RAM, and a 30 GB virtual disk.
@@ -62,8 +62,13 @@ An approved field replacement selects the current value and types the new value.
 A fixed setup command opens the practice form inside the guest.
 The prompt restricts work to the form. The enforced isolation boundary is the entire guest VM.
 
-Each action needs approval and expires after two minutes. Each sandbox permits 20 action attempts.
-The app does not run an unattended action loop.
+By default, each action needs approval and expires after two minutes.
+Select **Approve all actions for me** to execute validated actions automatically in the current sandbox.
+You can enable it while an action awaits approval. Clear the checkbox to pause before the next action.
+Holo inspects a fresh screenshot after each action and continues through the parts of your request.
+For example: “Change the name to Alice and set the short note to Hello from Holo.”
+Each sandbox permits 20 action attempts, including automatically approved actions.
+Automatic approval resets when you stop the sandbox.
 Stop discards pending proposals and removes the guest. An input event already sent cannot be undone.
 Ctrl+C also attempts guest cleanup. Closing the browser tab does not stop the server.
 

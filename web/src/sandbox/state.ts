@@ -21,6 +21,8 @@ export const sandboxState = z.object({
   screen: z.string().startsWith('data:image/png;base64,').nullable(),
   actions: z.number().int().nonnegative(),
   max_actions: z.number().int().positive(),
+  approve_all: z.boolean(),
+  task: z.object({ goal: z.string(), steps: z.number().int().nonnegative() }).nullable(),
 });
 
 export type SandboxState = z.infer<typeof sandboxState>;

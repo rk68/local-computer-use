@@ -92,6 +92,11 @@ class Runtime:
         if path == '/api/clear-chat':
             desk.clear_chat()
             return {'accepted': True}
+        if path == '/api/approval-mode':
+            desk.set_approval_mode(body.get('enabled'))
+            if desk.approve_all and desk.pending and not desk.busy:
+                desk.launch(desk.approve(desk.pending['id']))
+            return {'accepted': True}
         operations = {
             '/api/start': desk.start,
             '/api/refresh': desk.refresh,
