@@ -5,19 +5,24 @@
 - [x] Present three original logo concepts. See `docs/design/logo-concepts.svg`.
 - [x] Refine directions 01 and 02. See `docs/design/logo-refinements.svg`.
 - [x] Package all seven original references and a brief for the designer. See `docs/design/logo-references/README.md`.
-- [ ] Designer to develop the final logo. Keep the current mark until the user supplies the approved design.
+- [x] Receive the approved Halo brand pack from the designer. The implementation checklist is below.
 
 The model and VM must stay off during UI work unless the user requests otherwise.
 
-## Logo brief
+## Halo rebrand — approved assets
 
-Keep the brand mark separate from Holo's chat avatar. The user likes the existing serif “h” as a starting point.
-Explore original geometric shapes, balanced curves, and clear cutouts. Use the references for direction without copying a mark.
-Compare a custom “h”, an “hl” monogram, and a portal or orbit symbol.
-The latest reference emphasises rounded letterforms and deliberate cutouts.
+- [x] Import the supplied brand pack into `docs/design/halo-brand-pack/`, including its original guide and font licence.
+- [ ] Rename the visible product and assistant from hololocal/Holo to **halo** across the app and documentation.
+- [ ] Use the approved V2 tilted-ring symbol, outlined wordmark, and horizontal lockup from the pack.
+- [ ] Replace the current sidebar mark, page title, favicon, touch icon, and app icons.
+- [ ] Use the black and white assets according to the app's selected theme.
+- [ ] Load Outfit locally for interface typography. The pack specifies weight 600 and -0.02 em letter spacing for the lowercase wordmark.
+- [ ] Obtain the actual Outfit webfont files; the supplied wordmark is outlined and the pack includes the licence, but no font binaries.
+- [ ] Preserve `OUTFIT-OFL.txt`, check the pack's clear-space and minimum-size rules, and verify light/dark and mobile layouts.
 
-The mark must work in one colour, in both themes, and at 16, 24, and 32 pixels.
-Pair it with a clean hololocal wordmark. Deliver SVG versions for the sidebar and favicon.
+The supplied brand guide is `docs/design/halo-brand-pack/README.md`.
+The approved mark uses black #0A0A0B and white #FBFBFA, with no gradient or glow on the logo itself.
+The original reference images below remain available as historical design context.
 
 ## User references
 
