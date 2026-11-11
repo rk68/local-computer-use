@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { SandboxState } from './state';
 
 type Props = {
+  visible: boolean;
   state: SandboxState;
   busy: boolean;
   command: (path: string) => Promise<boolean>;
   tryMission: () => void;
 };
 
-export function Desktop({ state, busy, command, tryMission }: Props) {
+export function Desktop({ visible, state, busy, command, tryMission }: Props) {
   const blocked = busy || state.pending !== null;
   const [expanded, setExpanded] = useState(false);
   const [activity, setActivity] = useState(false);
@@ -32,7 +33,7 @@ export function Desktop({ state, busy, command, tryMission }: Props) {
   }, [expanded, state.sandbox, blocked, state.screen]);
 
   return <>
-    <section className="desktop-panel panel" aria-label="Sandbox desktop">
+    <section id="desktop-sidebar" className="desktop-panel panel" aria-label="Sandbox desktop" hidden={!visible}>
       <div className="panel-heading">
         <div><span className="panel-icon">▧</span><h2>Desktop</h2><span id="phase" className="phase">{state.phase === 'idle' ? 'Not started' : state.phase}</span></div>
         <button id="refresh" className="icon-button" aria-label="Refresh screenshot" disabled={blocked || !state.sandbox} onClick={() => void command('/api/refresh')}>↻</button>

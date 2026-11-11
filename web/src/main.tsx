@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { toChatMessages } from './conversation/messages';
@@ -8,6 +8,7 @@ import { Desktop } from './sandbox/Desktop';
 import { actionDescription } from './sandbox/state';
 import { playgroundState, type PlaygroundState } from './playground-state';
 import { ThemeToggle } from './theme';
+import { Notice } from './components/Notice';
 import { HoloAvatar } from './agent/HoloAvatar';
 import { AgentPresence } from './agent/AgentPresence';
 import { agentMode } from './agent/presence';
@@ -42,11 +43,32 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   const [draft, setDraft] = useState('');
   const [desktop, setDesktop] = useState(initialState.sandbox);
   const [error, setError] = useState('');
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState('');
   const [commandBusy, setCommandBusy] = useState(false);
+  const [showDesktop, setShowDesktop] = useState(() => {
+    try { return localStorage.getItem('holo-desktop-visible') !== 'false'; }
+    catch { return true; }
+  });
   const latestRequest = useRef(0);
   const messageList = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const resizeComposer = useCallback(() => {
+    const element = input.current;
+    if (!element) return;
+    element.style.height = 'auto';
+    const limit = Math.min(160, window.innerHeight * .2);
+    element.style.height = `${Math.min(element.scrollHeight, limit)}px`;
+    element.style.overflowY = element.scrollHeight > limit ? 'auto' : 'hidden';
+  }, []);
+  useLayoutEffect(resizeComposer, [draft, showDesktop, resizeComposer]);
+  useEffect(() => {
+    window.addEventListener('resize', resizeComposer);
+    return () => window.removeEventListener('resize', resizeComposer);
+  }, [resizeComposer]);
+  useEffect(() => {
+    try { localStorage.setItem('holo-desktop-visible', String(showDesktop)); } catch { /* Keep the in-memory preference. */ }
+  }, [showDesktop]);
   const initialMessages = useMemo(() => toChatMessages(initialState.messages), [initialState.messages]);
   const refresh = useCallback(async () => {
     const requestId = ++latestRequest.current;
@@ -91,6 +113,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   async function command(path: string, body: object = {}) {
     setCommandBusy(true);
     setError('');
+    setDismissedError(null);
     chat.clearError();
     try {
       await localRequest(path, commandResponse, token, body);
@@ -106,6 +129,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
 
   async function checkModel() {
     setModel('checking');
+    setDismissedError(null);
     try {
       const result = await localRequest('/api/model', modelResponse, token);
       setModel(result.ok ? 'connected' : 'offline');
@@ -122,6 +146,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
     if (!text || busy || pending) return;
     setDraft('');
     setError('');
+    setDismissedError(null);
     chat.clearError();
     try {
       await chat.sendMessage({ text }, { body: { desktop } });
@@ -154,12 +179,19 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
           <button id="model-check" className="icon-button" aria-label="Check model connection" onClick={() => void checkModel()}>↻</button>
         </div>
       </section>
-      {visibleError ? <div className="error" role="alert">{visibleError}</div> : null}
-      <div className="panels">
-        <Desktop state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft('Change the name to Alex'); }} />
+      {visibleError && visibleError !== dismissedError ? <Notice message={visibleError} onDismiss={() => setDismissedError(visibleError)} /> : null}
+      <div className="panels" data-desktop-visible={showDesktop}>
+        <Desktop visible={showDesktop} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft('Change the name to Alex'); }} />
         <section className="chat-panel panel" aria-label="Chat">
           <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with Holo</h2></div>
-            <button id="clear-chat" className="text-button" disabled={busy || pending !== null || !chat.messages.length} onClick={() => void clearChat()}>Clear chat</button>
+            <div className="chat-heading-actions">
+              <button id="clear-chat" className="icon-button" title="Clear chat" aria-label="Clear chat" disabled={busy || pending !== null || !chat.messages.length} onClick={() => void clearChat()}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+              <button id="toggle-desktop" className="icon-button" title={showDesktop ? 'Hide desktop sidebar' : 'Show desktop sidebar'} aria-label={showDesktop ? 'Hide desktop sidebar' : 'Show desktop sidebar'} aria-controls="desktop-sidebar" aria-expanded={showDesktop} onClick={() => setShowDesktop(visible => !visible)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M15 4v16" /><path d={showDesktop ? 'm9 9 3 3-3 3' : 'm11 9-3 3 3 3'} strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </div>
           </div>
           <div className="messages" id="messages" role="log" aria-live="polite" ref={messageList}>
             {chat.messages.length ? chat.messages.map(message => (
@@ -198,7 +230,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
             </div></details>
             <form id="chat-form" onSubmit={event => void send(event)}>
               <label className="sr-only" htmlFor="message">Message Holo</label>
-              <textarea ref={input} id="message" rows={2} maxLength={4000} value={draft} disabled={pending !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Holo a question, or give it a task…" onKeyDown={event => {
+              <textarea ref={input} id="message" rows={1} maxLength={4000} value={draft} disabled={pending !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Holo a question, or give it a task…" onKeyDown={event => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
                   event.currentTarget.form?.requestSubmit();

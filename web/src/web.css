@@ -498,3 +498,42 @@ footer { justify-content: flex-end; }
   .message-row.assistant > .holo-avatar svg, .agent-presence > .holo-avatar svg { width: 36px; height: 36px; }
   .message-row.assistant > .message, .presence-copy { max-width: calc(100% - 46px); }
 }
+
+/* Small interaction details: soft elevation and a quieter, expandable workspace. */
+.primary, .secondary, .welcome-card, .theme-toggle, .icon-button, .dialog-close, .send {
+  transition: background .16s, color .16s, border-color .16s, box-shadow .16s, transform .16s;
+}
+.primary:hover:not(:disabled), .secondary:hover:not(:disabled), .welcome-card:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px #00000018, 0 1px 3px #0000000c;
+}
+:root[data-theme='light'] .primary:hover:not(:disabled),
+:root[data-theme='light'] .secondary:hover:not(:disabled),
+:root[data-theme='light'] .welcome-card:hover:not(:disabled) {
+  box-shadow: 0 5px 14px #0000000d, 0 1px 3px #00000008;
+}
+.primary:active:not(:disabled), .secondary:active:not(:disabled), .welcome-card:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px #00000012;
+}
+.icon-button, .dialog-close { border-radius: 50%; width: 30px; height: 30px; border: 1px solid var(--line); background: var(--paper); }
+.icon-button svg { width: 15px; height: 15px; }
+.icon-button:hover:not(:disabled), .dialog-close:hover:not(:disabled) { box-shadow: 0 2px 6px #00000014; }
+.chat-heading-actions { display: flex; align-items: center; gap: 7px; }
+.panels[data-desktop-visible='false'] { grid-template-columns: minmax(0, 1fr); }
+.panels[data-desktop-visible='false'] .messages > .message-row,
+.panels[data-desktop-visible='false'] .messages > .agent-presence { max-width: 900px; align-self: center; }
+#message { min-height: 22px; max-height: min(160px, 20dvh); overflow-y: hidden; }
+#chat-form { transition: border-color .16s, box-shadow .16s; }
+@media (prefers-reduced-motion: reduce) {
+  .primary:hover, .secondary:hover, .welcome-card:hover { transform: none; }
+}
+
+.app-notice { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; margin-bottom: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 3px 12px #00000008; white-space: normal; }
+.notice-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--raised); color: var(--muted); }
+.notice-icon svg { width: 21px; height: 21px; }
+.notice-copy { flex: 1; min-width: 0; padding-top: 1px; }
+.notice-copy strong { display: block; font-size: 12px; font-weight: 500; line-height: 1.6; color: var(--ink); }
+.notice-copy p { margin: 3px 0 0; font-size: 11px; line-height: 1.7; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.notice-dismiss { width: 26px; height: 26px; flex: none; border-color: transparent; background: transparent; }
+@media (max-width: 480px) { .app-notice { padding: 12px; gap: 9px; border-radius: 14px; } }
