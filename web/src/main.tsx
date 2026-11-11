@@ -137,7 +137,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
 
   return <>
     <aside className="sidebar">
-      <a className="brand" href="/" aria-label="Holo Local home"><span className="mark">h<span>·</span></span><span>holo<span className="brand-light">local</span></span></a>
+      <a className="brand" href="/" aria-label="Holo Local home"><span className="mark">h</span><span>holo<span className="brand-light">local</span></span></a>
       <div className="nav active"><span className="nav-icon">▧</span> Playground</div>
       <div className="local-note"><span className="dot" /> Inference on your Mac</div>
     </aside>
@@ -163,7 +163,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
                 <div className="message-label">{message.role === 'assistant' ? 'Holo' : message.role === 'user' ? 'You' : 'Playground'}</div>
                 {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
               </div>
-            )) : <div className="chat-intro"><span className="avatar">h<span>·</span></span><h3>What shall we try?</h3>
+            )) : <div className="chat-intro"><span className="avatar">h</span><h3>What shall we try?</h3>
               <p>Ask a question or start the sandbox to try a desktop task.</p>
               <button className="suggestion" onClick={() => fillDraft('Explain how this playground works.')}>How does this work? ↗</button>
             </div>}
@@ -176,12 +176,14 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
             </div><small>Expires after 2 minutes.</small>
           </div> : null}
           <div className="composer-area">
+            <details className="chat-settings"><summary><span>⚙ &nbsp; Desktop controls</span><span>{desktop ? state.approve_all ? 'Auto approval' : 'Manual approval' : 'Text only'} ⌃</span></summary><div className="settings-popover">
             <label className="mode"><input type="checkbox" id="desktop-mode" checked={desktop} disabled={busy || !state.sandbox} onChange={event => setDesktop(event.target.checked)} /><span>Include sandbox screenshot &amp; propose actions</span></label>
             <label className="mode"><input type="checkbox" id="approve-all" checked={state.approve_all} disabled={commandBusy || !state.sandbox || state.phase === 'stopping'} onChange={event => {
               const enabled = event.target.checked;
               setState(current => ({ ...current, approve_all: enabled }));
               void command('/api/approval-mode', { enabled }).then(ok => { if (!ok) void refresh(); });
             }} /><span>Approve all actions for me <small>· this sandbox session</small></span></label>
+            </div></details>
             <form id="chat-form" onSubmit={event => void send(event)}>
               <label className="sr-only" htmlFor="message">Message Holo</label>
               <textarea ref={input} id="message" rows={2} maxLength={4000} value={draft} disabled={pending !== null} onChange={event => setDraft(event.target.value)} placeholder="Message Holo…" onKeyDown={event => {
