@@ -59,8 +59,9 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   }, [token]);
   const onFinish = useCallback(() => { void refresh(); }, [refresh]);
   const chat = useLocalChat(token, initialMessages, onFinish);
+  const generating = chat.status === 'submitted' || chat.status === 'streaming';
   const busy = commandBusy || state.busy || state.phase === 'stopping'
-    || chat.status === 'submitted' || chat.status === 'streaming';
+    || generating;
   const pending = state.pending;
   const visibleError = error || connectionError || state.error || chat.error?.message;
 
@@ -180,7 +181,13 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
                   event.currentTarget.form?.requestSubmit();
                 }
               }} />
-              <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || !draft.trim()}>↑</button>
+              {generating && !desktop ? (
+                <button id="stop-generation" className="send" type="button" aria-label="Stop generating" onClick={() => {
+                  void chat.stopGeneration().catch(failure => setError((failure as Error).message));
+                }}>■</button>
+              ) : (
+                <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || !draft.trim()}>↑</button>
+              )}
             </form>
             <div className="composer-footer"><span id="chat-status">{busy ? 'Working locally…' : pending ? 'Review the proposed action.' : desktop ? 'Desktop context · this VM' : 'Text chat · saved on this Mac'}</span><kbd>Enter ↵</kbd></div>
           </div>

@@ -13,6 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 
 from app.logging_setup import configure
+from app.model_stream import StreamCancelled, TextGeneration
 from app.sandbox_actions import TOOLS, TOOL_ACTIONS, model_action_in_pixels, validate_action
 
 LOGGER = configure()
@@ -123,6 +124,7 @@ class Desk:
         self.width = self.height = 0
         self.actions = 0
         self.tasks = set()
+        self.text_generation = None
 
     def event(self, text):
         LOGGER.info('%s', text)
@@ -261,6 +263,8 @@ class Desk:
 
     async def stop(self):
         # Fence model results before waiting for an in-flight guest RPC.
+        if self.text_generation is not None:
+            self.text_generation.cancel()
         self.epoch += 1
         self.pending = None
         self.phase = 'stopping'
@@ -280,7 +284,7 @@ class Desk:
         async with self.lock:
             await self.capture()
 
-    async def chat(self, text, desktop):
+    async def chat(self, text, desktop, on_delta=None, request_id=None):
         if not isinstance(text, str) or not 1 <= len(text.strip()) <= 4000:
             raise ValueError('Enter a message of 1–4,000 characters.')
         if self.pending:
@@ -319,6 +323,22 @@ class Desk:
             if replacement:
                 payload['tool_choice'] = {'type': 'function', 'function': {'name': 'desktop_replace_text'}}
             payload['parallel_tool_calls'] = False
+        if not desktop and on_delta is not None:
+            stream = TextGeneration(request_id)
+            self.text_generation = stream
+            self.phase = 'generating text'
+            try:
+                answer = await asyncio.to_thread(stream.generate, payload, on_delta)
+                if stream.cancelled.is_set() or generation != self.epoch:
+                    return
+                if text_action(answer) is not None:
+                    raise RuntimeError('Holo returned an action proposal in text chat. Enable desktop mode to request actions.')
+                return self.record_reply(text, answer)
+            except StreamCancelled:
+                self.event('Text generation cancelled.')
+                return
+            finally:
+                self.text_generation = None
         response = await asyncio.to_thread(model_request, '/v1/chat/completions', payload)
         if generation != self.epoch:
             self.event('Discarded a model response received after Stop.')
@@ -370,6 +390,11 @@ class Desk:
         elif action_requested:
             answer = 'Holo did not propose an action. The sandbox was not changed.'
         return self.record_reply(text, answer, desktop=desktop)
+
+    def cancel_conversation(self, request_id):
+        stream = self.text_generation
+        if stream is not None and request_id and stream.request_id == request_id:
+            stream.cancel()
 
     def record_reply(self, text, answer, desktop=False):
         if not desktop and self.memory:

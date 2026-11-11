@@ -4,10 +4,12 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
+import queue
 import re
 import secrets
 import signal
 import threading
+import time
 from urllib.parse import urlsplit
 
 from app.core import Desk, LOGGER, model_request
@@ -19,6 +21,15 @@ TOKEN = secrets.token_urlsafe(32)
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / 'web/dist'
 CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+
+
+class ConversationStream:
+    def __init__(self, request_id):
+        self.request_id = request_id
+        self.events = queue.Queue()
+
+    def delta(self, text):
+        self.events.put(('delta', text))
 
 
 class Runtime:
@@ -34,6 +45,28 @@ class Runtime:
 
     def call(self, coroutine, timeout=10):
         return asyncio.run_coroutine_threadsafe(coroutine, self.loop).result(timeout)
+
+    async def open_conversation(self, body):
+        request_id = body.get('request_id') or secrets.token_hex(16)
+        if not isinstance(request_id, str) or not re.fullmatch(r'[a-zA-Z0-9-]{1,80}', request_id):
+            raise ValueError('Invalid conversation request ID.')
+        if self.desk.phase in {'stopping', 'cleanup required'}:
+            raise ValueError('Wait for sandbox cleanup to complete.')
+        channel = ConversationStream(request_id)
+        self.desk.launch(self.complete_conversation(channel, body))
+        return channel
+
+    async def complete_conversation(self, channel, body):
+        try:
+            reply = await self.desk.chat(body.get('message'), body.get('desktop') is True,
+                                         on_delta=channel.delta, request_id=channel.request_id)
+            channel.events.put(('abort', None) if reply is None else ('done', reply))
+        except Exception as exc:
+            channel.events.put(('error', str(exc)))
+            raise
+
+    async def cancel_conversation(self, request_id):
+        self.desk.cancel_conversation(request_id)
 
     async def dispatch(self, path, body):
         desk = self.desk
@@ -53,11 +86,9 @@ class Runtime:
             return {'accepted': True}
         if desk.phase in {'stopping', 'cleanup required'}:
             raise ValueError('Cleanup is in progress or needs a retry. Use Stop.')
-        if path == '/api/conversation':
-            reply = await desk.launch(desk.chat(body.get('message'), body.get('desktop') is True))
-            if reply is None:
-                raise ValueError(desk.error or 'The conversation turn was stopped.')
-            return {'text': reply}
+        if path == '/api/cancel-conversation':
+            desk.cancel_conversation(body.get('request_id'))
+            return {'accepted': True}
         if path == '/api/clear-chat':
             desk.clear_chat()
             return {'accepted': True}
@@ -73,9 +104,15 @@ class Runtime:
         desk.launch(operations[path]())
         return {'accepted': True}
 
+    async def shutdown(self):
+        await self.desk.stop()
+        tasks = list(self.desk.tasks)
+        if tasks:
+            await asyncio.wait(tasks, timeout=5)
+
     def close(self):
         try:
-            self.call(self.desk.stop(), timeout=60)
+            self.call(self.shutdown(), timeout=60)
         finally:
             self.loop.call_soon_threadsafe(self.loop.stop)
             self.thread.join(timeout=2)
@@ -160,12 +197,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def perform(self, path, body):
         try:
-            result = self.server.runtime.call(self.server.runtime.dispatch(path, body),
-                                              timeout=210 if path == '/api/conversation' else 10)
             if path == '/api/conversation':
-                self.respond_chat(result['text'])
-            else:
-                self.respond(200, result)
+                self.respond_conversation(body)
+                return
+            result = self.server.runtime.call(self.server.runtime.dispatch(path, body))
+            self.respond(200, result)
         except (BrokenPipeError, ConnectionResetError):
             return
         except ValueError as exc:
@@ -173,17 +209,59 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             self.respond(500, {'error': str(exc)[:1000]})
 
-    def respond_chat(self, reply):
-        # AI SDK UI message stream. The desktop agent produces one validated
-        # reply, so deliver it as one text part when the turn completes.
+    def write_event(self, event):
+        self.wfile.write(('data: ' + json.dumps(event, ensure_ascii=False) + '\n\n').encode())
+        self.wfile.flush()
+
+    def respond_conversation(self, body):
+        channel = self.server.runtime.call(self.server.runtime.open_conversation(body))
         part_id = secrets.token_hex(8)
-        parts = [{'type': 'start', 'messageId': secrets.token_hex(16)},
-                 {'type': 'text-start', 'id': part_id},
-                 {'type': 'text-delta', 'id': part_id, 'delta': reply},
-                 {'type': 'text-end', 'id': part_id},
-                 {'type': 'finish'}]
-        stream = ''.join(f'data: {json.dumps(part)}\n\n' for part in parts)
-        self.respond(200, (stream + 'data: [DONE]\n\n').encode(), 'text/event-stream')
+        streamed = False
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('x-vercel-ai-ui-message-stream', 'v1')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Content-Security-Policy', CSP)
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            self.close_connection = True
+            self.write_event({'type': 'start', 'messageId': secrets.token_hex(16)})
+            self.write_event({'type': 'text-start', 'id': part_id})
+            last_write = time.monotonic()
+            while True:
+                try:
+                    kind, value = channel.events.get(timeout=1)
+                except queue.Empty:
+                    if time.monotonic() - last_write >= 5:
+                        self.wfile.write(b': keepalive\n\n')
+                        self.wfile.flush()
+                        last_write = time.monotonic()
+                    continue
+                if kind == 'delta':
+                    self.write_event({'type': 'text-delta', 'id': part_id, 'delta': value})
+                    streamed = True
+                    last_write = time.monotonic()
+                elif kind == 'done':
+                    if not streamed:
+                        self.write_event({'type': 'text-delta', 'id': part_id, 'delta': value})
+                    self.write_event({'type': 'text-end', 'id': part_id})
+                    self.write_event({'type': 'finish', 'finishReason': 'stop'})
+                    break
+                elif kind == 'abort':
+                    self.write_event({'type': 'abort', 'reason': 'Generation stopped.'})
+                    break
+                elif kind == 'error':
+                    self.write_event({'type': 'error', 'errorText': value})
+                    break
+            self.wfile.write(b'data: [DONE]\n\n')
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            self.server.runtime.call(self.server.runtime.cancel_conversation(channel.request_id))
+        except Exception:
+            self.server.runtime.call(self.server.runtime.cancel_conversation(channel.request_id))
+            LOGGER.exception('Conversation delivery failed')
 
 
 def main():

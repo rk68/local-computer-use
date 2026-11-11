@@ -33,7 +33,9 @@ Desktop context belongs to the current VM session.
 **Clear chat** removes the saved transcript and the current conversation context.
 
 The web app uses React, TypeScript, Vite, Zod, and Vercel AI SDK UI.
-AI SDK UI handles chat state and response delivery. Python delivers each reply after the turn completes.
+AI SDK UI handles chat state and incremental text delivery.
+Text replies stream from llama.cpp as it generates them. **Stop generating** interrupts the active text request.
+Only completed text turns enter saved memory. Desktop proposals appear after the full action passes validation.
 The Python API owns the sandbox and calls the local llama.cpp model endpoint.
 
 The conversation domain owns messages and memory. See `web/src/conversation/` and `app/chat_memory.py`.
