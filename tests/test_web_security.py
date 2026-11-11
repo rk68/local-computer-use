@@ -91,12 +91,19 @@ class BrowserBroker(unittest.IsolatedAsyncioTestCase):
         guest.files.remove.assert_awaited_once()
 
     async def test_only_fixed_helper_command_is_executed(self):
-        guest = SimpleNamespace(files=SimpleNamespace(write_text=AsyncMock(), read_bytes=AsyncMock(return_value=PNG), remove=AsyncMock()), shell=SimpleNamespace(run=AsyncMock(return_value=SimpleNamespace(success=True, stdout='{"ok":true,"origin":"https://example.com"}'))))
+        guest = SimpleNamespace(files=SimpleNamespace(write_text=AsyncMock(), read_bytes=AsyncMock(return_value=PNG), remove=AsyncMock()), shell=SimpleNamespace(run=AsyncMock(return_value=SimpleNamespace(success=True, stdout='{"ok":true,"origin":"https://example.com","request_id":"fixed-request"}'))))
         broker = BrowserSession(guest)
-        await broker.call('login', password='private-password')
+        with patch('app.browser_session.secrets.token_hex', return_value='fixed-request'):
+            await broker.call('login', password='private-password')
         command = guest.shell.run.call_args.args[0]
         self.assertEqual(command, '/tmp/holo-browser-env/bin/python /tmp/holo-browser.py')
         self.assertNotIn('private-password', command)
+
+    async def test_stale_browser_response_is_not_reused(self):
+        guest = SimpleNamespace(files=SimpleNamespace(write_text=AsyncMock(), read_bytes=AsyncMock(return_value=PNG), remove=AsyncMock()), shell=SimpleNamespace(run=AsyncMock(return_value=SimpleNamespace(success=True, stdout='{"ok":true,"origin":"https://example.com","request_id":"old-request"}'))))
+        with self.assertRaises(RuntimeError):
+            await BrowserSession(guest).call('screen')
+        guest.files.read_bytes.assert_not_awaited()
 
     async def test_login_rejects_changed_origin_before_releasing_secrets(self):
         desk = core.Desk()

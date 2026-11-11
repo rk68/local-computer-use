@@ -75,7 +75,7 @@ export function Desktop({ visible, token, state, busy, command, tryMission }: Pr
       </div>
       <button className="activity-toggle" onClick={() => setActivity(true)}><span>Session activity <span className="activity-count">{state.events.length}</span></span><span>↗</span></button>
       {state.network ? <div className="guest-downloads"><button className="text-button" disabled={blocked} onClick={() => void checkDownloads()}>Check guest downloads ↻</button>{downloads.map(file => <div className="guest-file" key={file.name}><span aria-hidden="true">▤</span><div><strong>{file.name}</strong><small>{file.size === null ? 'File in sandbox' : `${Math.ceil(file.size / 1024)} KB · in sandbox`}</small></div></div>)}{downloadError ? <p role="alert">{downloadError}</p> : null}</div> : null}
-      <div className="desktop-caption">{state.screen ? 'Click the preview to take a closer look.' : 'Your Mac stays separate from this workspace.'}</div>
+      <div className="desktop-caption">{state.network ? state.browser_origin || 'No website open yet.' : state.screen ? 'Click the preview to take a closer look.' : 'Your Mac stays separate from this workspace.'}</div>
     </section>
     <dialog ref={desktopDialog} className="desktop-dialog" aria-labelledby="desktop-title" onCancel={() => setExpanded(false)} onClose={() => setExpanded(false)}>
       <div className="dialog-heading"><div><h2 id="desktop-title">Sandbox desktop</h2><p>{state.pending || state.credential_request ? 'Paused for approval · screenshot held for review' : busy ? 'Working · updates after each action' : 'Live view · refreshes every 2 seconds'}</p></div><button className="dialog-close" aria-label="Close desktop" onClick={() => setExpanded(false)}>×</button></div>

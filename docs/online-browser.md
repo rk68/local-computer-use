@@ -57,7 +57,8 @@ The private form uses a separate endpoint from the chat transport.
 Decrypted values pass through backend memory and a private tmpfs request file inside the guest.
 They are not placed in command arguments, chat memory, or application logs.
 The request file is deleted after reading. Values used for masking remain in private guest memory until the VM stops.
-Browser session cookies remain inside the disposable guest profile.
+Browser session cookies remain inside the guest browser session.
+The online context blocks service workers and WebSockets during this preview.
 
 [Playwright screenshot masks](https://playwright.dev/python/docs/api/class-page#page-screenshot-option-mask) cover input fields.
 After credential use, masks also cover matching credential text, images, video, canvases, and iframes.

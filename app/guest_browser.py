@@ -35,14 +35,18 @@ def origin(value):
 
 
 def operate(request, browser):
-    context = browser.contexts[0]
+    context = browser.contexts[-1]
     pages = [page for page in context.pages if not page.is_closed()]
     page = pages[-1] if pages else context.new_page()
     page.set_default_timeout(5000)
     page.set_viewport_size({'width': 1280, 'height': 800})
     cdp = context.new_cdp_session(page)
     try:
-        cdp.send('Browser.setDownloadBehavior', {'behavior': 'allow', 'downloadPath': str(DOWNLOADS)})
+        target = cdp.send('Target.getTargetInfo')['targetInfo']
+        options = {'behavior': 'allow', 'downloadPath': str(DOWNLOADS)}
+        if isinstance(target.get('browserContextId'), str):
+            options['browserContextId'] = target['browserContextId']
+        cdp.send('Browser.setDownloadBehavior', options)
     finally:
         cdp.detach()
     # Public HTTPS only. This is application filtering, not a VM firewall.
@@ -138,26 +142,32 @@ def serve():
                 time.sleep(.5)
         if browser is None:
             return
+        for old_context in browser.contexts:
+            for old_page in old_context.pages:
+                old_page.close()
+        context = browser.new_context(accept_downloads=True, service_workers='block', viewport={'width': 1280, 'height': 800})
+        context.route_web_socket('**/*', lambda connection: connection.close())
+        context.new_page()
         ready = PRIVATE / 'request.ready'
         request_path = PRIVATE / 'request.json'
         while True:
             try:
-                pages = browser.contexts[0].pages
-                page = pages[-1] if pages else browser.contexts[0].new_page()
+                pages = context.pages
+                page = pages[-1] if pages else context.new_page()
                 page.wait_for_timeout(100)  # Keep Playwright's network routing active between actions.
             except Exception:
                 return
             if not ready.exists():
                 continue
             ready.unlink(missing_ok=True)
+            request = {}
             try:
                 request = json.loads(request_path.read_text())
                 request_path.unlink(missing_ok=True)
                 result = operate(request, browser)
             except Exception:
                 result = failure()  # Never print Playwright exceptions containing values.
-            finally:
-                request_path.unlink(missing_ok=True)
+            result['request_id'] = request.get('request_id')
             result_path = PRIVATE / 'result.json'
             temporary = PRIVATE / 'result.tmp'
             temporary.write_text(json.dumps(result))
@@ -167,6 +177,7 @@ def serve():
 
 def client():
     result_path = PRIVATE / 'result.json'
+    expected = json.loads((PRIVATE / 'request.json').read_text())['request_id']
     result_path.unlink(missing_ok=True)
     (PRIVATE / 'request.ready').touch(mode=0o600)
     deadline = time.monotonic() + 40
@@ -175,7 +186,8 @@ def client():
             if result_path.exists():
                 result = json.loads(result_path.read_text())
                 result_path.unlink(missing_ok=True)
-                return result
+                if result.get('request_id') == expected:
+                    return result
             time.sleep(.05)
         return failure()
     finally:

@@ -1,6 +1,7 @@
 """Host-side broker for a browser running inside a Cua VM."""
 import asyncio
 import json
+import secrets
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,13 +33,14 @@ class BrowserSession:
         await self.call('screen')
 
     async def call(self, operation, **arguments):
+        request_id = secrets.token_hex(16)
         try:
-            await self.guest.files.write_text('/dev/shm/holo-private/request.json', json.dumps({'operation': operation, **arguments}))
+            await self.guest.files.write_text('/dev/shm/holo-private/request.json', json.dumps({'operation': operation, 'request_id': request_id, **arguments}))
             result = await self.guest.shell.run('/tmp/holo-browser-env/bin/python /tmp/holo-browser.py', timeout=45)
             if not result.success:
                 raise ValueError
             data = json.loads(result.stdout)
-            if data.get('ok') is not True:
+            if data.get('ok') is not True or data.get('request_id') != request_id:
                 raise ValueError
             png = await self.guest.files.read_bytes('/dev/shm/holo-private/screen.png', length=15_000_001)
             if not png.startswith(b'\x89PNG\r\n\x1a\n') or len(png) > 15_000_000:
