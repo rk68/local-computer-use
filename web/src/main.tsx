@@ -206,8 +206,8 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
                   {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
                 </div>
               </div>
-            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>A little help,<br />{' '}a lot of possibility.</h3>
-              <p>Talk through an idea, ask a question, or try something on the desktop.</p>
+            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>Give Halo a task.<br />{' '}Stay in control.</h3>
+              <p>Chat with your local AI, or let Halo work through a task in a sandboxed desktop.</p>
               <div className="welcome-cards">
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('What can you help me with?'); }}><span className="card-symbol" aria-hidden="true">↗</span><strong>Start a conversation</strong><span>Think something through together.</span></button>
                 <button className="welcome-card" disabled={!state.sandbox || busy} onClick={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }}><span className="card-symbol" aria-hidden="true">▧</span><strong>Try the desktop</strong><span>{state.sandbox ? 'Let Halo take the next step.' : 'Start the sandbox to get going.'}</span></button>
