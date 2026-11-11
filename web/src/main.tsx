@@ -10,7 +10,7 @@ import { playgroundState, type PlaygroundState } from './playground-state';
 import { ThemeToggle } from './theme';
 import { HoloAvatar } from './agent/HoloAvatar';
 import { AgentPresence } from './agent/AgentPresence';
-import { agentMode, agentLabels } from './agent/presence';
+import { agentMode } from './agent/presence';
 import './web.css';
 
 type ModelStatus = 'checking' | 'connected' | 'offline';
@@ -209,11 +209,10 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
                 <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || !draft.trim()}>↑</button>
               )}
             </form>
-            <div className="composer-footer"><span id="chat-status">{presence !== 'idle' ? agentLabels[presence] + '…' : busy ? 'Updating workspace…' : desktop ? 'Desktop context · this VM' : 'Text chat · saved on this Mac'}</span><kbd>Enter ↵</kbd></div>
           </div>
         </section>
       </div>
-      <footer><span>{state.approve_all ? 'Validated actions run automatically in this sandbox.' : 'Review each action before it runs.'}</span><button id="stop" className="stop" disabled={state.phase === 'stopping' || !state.sandbox && !state.busy && state.phase !== 'cleanup required'} onClick={() => void command('/api/stop')}>■ &nbsp; Stop &amp; remove sandbox</button></footer>
+      <footer><button id="stop" className="stop" disabled={state.phase === 'stopping' || !state.sandbox && !state.busy && state.phase !== 'cleanup required'} onClick={() => void command('/api/stop')}>■ &nbsp; Stop &amp; remove sandbox</button></footer>
     </main>
   </>;
 }

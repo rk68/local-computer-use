@@ -451,3 +451,29 @@ h1 { font-size: 21px; }
   .welcome-card strong { margin: 0; }
   .welcome-character { display: none; }
 }
+
+/* Static ambient light adds depth without continuous animation or blur layers. */
+.chat-panel {
+  border-color: #ffffff0a;
+  box-shadow: 0 0 0 1px #ffffff03,
+    -10px 12px 36px -18px #ffc7ae3d,
+    12px -8px 38px -18px #c4b5fd33,
+    0 16px 42px -24px #00000099;
+  transition: border-color .2s, box-shadow .2s;
+}
+.chat-panel:focus-within {
+  border-color: #ffffff19;
+  box-shadow: 0 0 0 1px #ffffff05,
+    -10px 12px 40px -18px #ffc7ae47,
+    12px -8px 42px -18px #c4b5fd40,
+    0 16px 42px -24px #00000099;
+}
+:root[data-theme='light'] .chat-panel {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff80,
+    -10px 12px 38px -18px #e6b7a16b,
+    12px -8px 42px -18px #c4b5fd66,
+    0 14px 36px -22px #00000026;
+}
+:root[data-theme='light'] .chat-panel:focus-within { border-color: #d8d5df; }
+footer { justify-content: flex-end; }
