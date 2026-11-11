@@ -7,7 +7,7 @@ import { commandResponse, localRequest, modelResponse, sessionResponse } from '.
 import { Desktop } from './sandbox/Desktop';
 import { actionDescription } from './sandbox/state';
 import { playgroundState, type PlaygroundState } from './playground-state';
-import '../../app/static/style.css';
+import { ThemeToggle } from './theme';
 import './web.css';
 
 type ModelStatus = 'checking' | 'connected' | 'offline';
@@ -142,9 +142,9 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
       <div className="local-note"><span className="dot" /> Inference on your Mac</div>
     </aside>
     <main>
-      <header><div className="breadcrumb">Workspace <span>/</span> Playground</div><div className="private-pill">⌂ &nbsp; Local session</div></header>
+      <header><div className="breadcrumb">Workspace <span>/</span> Playground</div><div className="header-actions"><div className="private-pill">Local session</div><ThemeToggle /></div></header>
       <section className="heading">
-        <h1>Your local playground<span>.</span></h1>
+        <div className="heading-copy"><h1>Playground</h1><p>A private workspace for your local model.</p></div>
         <div className="model-pill"><span className={`dot ${model === 'connected' ? 'on' : model === 'offline' ? 'off' : ''}`} />
           <span id="model-status">{model === 'checking' ? 'Checking Holo4…' : model === 'connected' ? 'Holo4 connected' : 'Holo4 offline'}</span>
           <button id="model-check" className="icon-button" aria-label="Check model connection" onClick={() => void checkModel()}>↻</button>
