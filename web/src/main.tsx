@@ -8,6 +8,9 @@ import { Desktop } from './sandbox/Desktop';
 import { actionDescription } from './sandbox/state';
 import { playgroundState, type PlaygroundState } from './playground-state';
 import { ThemeToggle } from './theme';
+import { HoloAvatar } from './agent/HoloAvatar';
+import { AgentPresence } from './agent/AgentPresence';
+import { agentMode, agentLabels } from './agent/presence';
 import './web.css';
 
 type ModelStatus = 'checking' | 'connected' | 'offline';
@@ -63,6 +66,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   const busy = commandBusy || state.busy || state.phase === 'stopping'
     || generating;
   const pending = state.pending;
+  const presence = agentMode(state, chat.status, desktop);
   const visibleError = error || connectionError || state.error || chat.error?.message;
 
   useEffect(() => {
@@ -78,7 +82,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   useEffect(() => { setDesktop(state.sandbox); }, [state.sandbox, state.sandbox_id]);
   useEffect(() => {
     if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight;
-  }, [chat.messages]);
+  }, [chat.messages, presence]);
   const serverTranscript = JSON.stringify(state.messages);
   useEffect(() => {
     if (!generating && !state.busy) chat.setMessages(toChatMessages(state.messages));
@@ -138,13 +142,13 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   return <>
     <aside className="sidebar">
       <a className="brand" href="/" aria-label="Holo Local home"><span className="mark">h</span><span>holo<span className="brand-light">local</span></span></a>
-      <div className="nav active"><span className="nav-icon">▧</span> Playground</div>
+      <button className="nav active agent-nav" onClick={() => input.current?.focus()}><HoloAvatar small /><span>Holo<small>Your local assistant</small></span></button>
       <div className="local-note"><span className="dot" /> Inference on your Mac</div>
     </aside>
     <main>
       <header><div className="breadcrumb">Workspace <span>/</span> Playground</div><div className="header-actions"><div className="private-pill">Local session</div><ThemeToggle /></div></header>
       <section className="heading">
-        <div className="heading-copy"><h1>Playground</h1><p>A private workspace for your local model.</p></div>
+        <div className="heading-copy"><h1>Your workspace</h1><p>A little help. Entirely local.</p></div>
         <div className="model-pill"><span className={`dot ${model === 'connected' ? 'on' : model === 'offline' ? 'off' : ''}`} />
           <span id="model-status">{model === 'checking' ? 'Checking Holo4…' : model === 'connected' ? 'Holo4 connected' : 'Holo4 offline'}</span>
           <button id="model-check" className="icon-button" aria-label="Check model connection" onClick={() => void checkModel()}>↻</button>
@@ -154,19 +158,24 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
       <div className="panels">
         <Desktop state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft('Change the name to Alex'); }} />
         <section className="chat-panel panel" aria-label="Chat">
-          <div className="panel-heading"><div><span className="avatar tiny">h</span><h2>Chat with Holo</h2></div>
+          <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with Holo</h2></div>
             <button id="clear-chat" className="text-button" disabled={busy || pending !== null || !chat.messages.length} onClick={() => void clearChat()}>Clear chat</button>
           </div>
           <div className="messages" id="messages" role="log" aria-live="polite" ref={messageList}>
             {chat.messages.length ? chat.messages.map(message => (
               <div className={`message ${message.role}`} key={message.id}>
-                <div className="message-label">{message.role === 'assistant' ? 'Holo' : message.role === 'user' ? 'You' : 'Playground'}</div>
+                <div className="message-label">{message.role === 'assistant' ? <><HoloAvatar small />Holo</> : message.role === 'user' ? 'You' : 'Playground'}</div>
                 {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
               </div>
-            )) : <div className="chat-intro"><span className="avatar">h</span><h3>What shall we try?</h3>
-              <p>Ask a question or start the sandbox to try a desktop task.</p>
-              <button className="suggestion" onClick={() => fillDraft('Explain how this playground works.')}>How does this work? ↗</button>
+            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HOLO</span><h3>A little help,<br /> a lot of possibility.</h3>
+              <p>Talk through an idea, ask a question, or try something on the desktop.</p>
+              <div className="welcome-cards">
+                <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('What can you help me with?'); }}><span className="card-symbol" aria-hidden="true">↗</span><strong>Start a conversation</strong><span>Think something through together.</span></button>
+                <button className="welcome-card" disabled={!state.sandbox || busy} onClick={() => { setDesktop(true); fillDraft('Change the name to Alex'); }}><span className="card-symbol" aria-hidden="true">▧</span><strong>Try the desktop</strong><span>{state.sandbox ? 'Let Holo take the next step.' : 'Start the sandbox to get going.'}</span></button>
+                <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('Explain how this local playground works.'); }}><span className="card-symbol" aria-hidden="true">⌘</span><strong>Get your bearings</strong><span>A quick tour of your workspace.</span></button>
+              </div>
             </div>}
+            <AgentPresence mode={presence} desktop={desktop} />
           </div>
           {pending ? <div id="proposal" className="proposal">
             <div className="proposal-label">YOUR APPROVAL NEEDED</div><p>{pending.action.reason}</p><pre>{actionDescription(pending.action)}</pre>
@@ -186,7 +195,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
             </div></details>
             <form id="chat-form" onSubmit={event => void send(event)}>
               <label className="sr-only" htmlFor="message">Message Holo</label>
-              <textarea ref={input} id="message" rows={2} maxLength={4000} value={draft} disabled={pending !== null} onChange={event => setDraft(event.target.value)} placeholder="Message Holo…" onKeyDown={event => {
+              <textarea ref={input} id="message" rows={2} maxLength={4000} value={draft} disabled={pending !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Holo a question, or give it a task…" onKeyDown={event => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
                   event.currentTarget.form?.requestSubmit();
@@ -200,7 +209,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
                 <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || !draft.trim()}>↑</button>
               )}
             </form>
-            <div className="composer-footer"><span id="chat-status">{busy ? 'Working locally…' : pending ? 'Review the proposed action.' : desktop ? 'Desktop context · this VM' : 'Text chat · saved on this Mac'}</span><kbd>Enter ↵</kbd></div>
+            <div className="composer-footer"><span id="chat-status">{presence !== 'idle' ? agentLabels[presence] + '…' : busy ? 'Updating workspace…' : desktop ? 'Desktop context · this VM' : 'Text chat · saved on this Mac'}</span><kbd>Enter ↵</kbd></div>
           </div>
         </section>
       </div>
