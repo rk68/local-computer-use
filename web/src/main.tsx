@@ -163,9 +163,12 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
           </div>
           <div className="messages" id="messages" role="log" aria-live="polite" ref={messageList}>
             {chat.messages.length ? chat.messages.map(message => (
-              <div className={`message ${message.role}`} key={message.id}>
-                <div className="message-label">{message.role === 'assistant' ? <><HoloAvatar small />Holo</> : message.role === 'user' ? 'You' : 'Playground'}</div>
-                {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
+              <div className={`message-row ${message.role}`} key={message.id}>
+                {message.role === 'assistant' ? <HoloAvatar /> : null}
+                <div className={`message ${message.role}`}>
+                  <div className="message-label">{message.role === 'assistant' ? 'Holo' : message.role === 'user' ? 'You' : 'Playground'}</div>
+                  {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
+                </div>
               </div>
             )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HOLO</span><h3>A little help,<br /> a lot of possibility.</h3>
               <p>Talk through an idea, ask a question, or try something on the desktop.</p>

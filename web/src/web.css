@@ -477,3 +477,24 @@ h1 { font-size: 21px; }
 }
 :root[data-theme='light'] .chat-panel:focus-within { border-color: #d8d5df; }
 footer { justify-content: flex-end; }
+
+/* Give Holo a place beside the bubble, like a conversation partner. */
+.message-row { display: flex; align-items: flex-start; gap: 12px; width: 100%; min-width: 0; flex: none; }
+.message-row.user { justify-content: flex-end; }
+.message-row.system { justify-content: center; }
+.message-row > .message { margin: 0; min-width: 0; }
+.message-row.assistant > .message { max-width: calc(100% - 60px); }
+.message-row.assistant > .holo-avatar, .agent-presence > .holo-avatar { width: 48px; height: 48px; }
+.message-row.assistant > .holo-avatar svg, .agent-presence > .holo-avatar svg { width: 44px; height: 44px; }
+.message.assistant .message-label { margin: 0 0 5px; }
+.chat-panel > .panel-heading .holo-avatar { width: 32px; height: 32px; background: transparent; }
+.chat-panel > .panel-heading .holo-avatar svg { width: 30px; height: 30px; }
+.agent-presence { width: 100%; align-items: flex-start; gap: 12px; padding: 0; border: 0; background: transparent; }
+.presence-copy { padding: 12px 15px; border: 1px solid var(--line); background: var(--raised); border-radius: 20px 20px 20px 6px; max-width: calc(100% - 60px); }
+.agent-presence[data-mode='waiting'] .presence-copy { border-style: dashed; }
+@media (max-width: 480px) {
+  .message-row, .agent-presence { gap: 8px; }
+  .message-row.assistant > .holo-avatar, .agent-presence > .holo-avatar { width: 38px; height: 38px; }
+  .message-row.assistant > .holo-avatar svg, .agent-presence > .holo-avatar svg { width: 36px; height: 36px; }
+  .message-row.assistant > .message, .presence-copy { max-width: calc(100% - 46px); }
+}
