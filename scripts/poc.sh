@@ -32,5 +32,4 @@ if [[ -x "$ROOT/.venv/bin/python" ]]; then PYTHON="$ROOT/.venv/bin/python"; fi
 if [[ "${1:-}" == cleanup ]]; then
   exec "$PYTHON" -m app.cleanup
 fi
-build_web
-exec "$PYTHON" -m app.server
+exec "$PYTHON" scripts/run_halo.py

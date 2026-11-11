@@ -7,13 +7,14 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   token: string;
+  threadId: string;
   state: SandboxState;
   busy: boolean;
   command: (path: string, body?: object) => Promise<boolean>;
   tryMission: () => void;
 };
 
-export function Desktop({ visible, onClose, token, state, busy, command, tryMission }: Props) {
+export function Desktop({ visible, onClose, token, threadId, state, busy, command, tryMission }: Props) {
   const blocked = busy || state.pending !== null || state.credential_request !== null;
   const [expanded, setExpanded] = useState(false);
   const [network, setNetwork] = useState(false);
@@ -22,7 +23,7 @@ export function Desktop({ visible, onClose, token, state, busy, command, tryMiss
   useEffect(() => { setDownloads([]); setDownloadError(''); }, [state.sandbox_id]);
   async function checkDownloads() {
     try {
-      const result = await localRequest('/api/downloads', z.object({ files: z.array(z.object({ name: z.string(), size: z.number().nullable() })) }), token, {});
+      const result = await localRequest('/api/downloads', z.object({ files: z.array(z.object({ name: z.string(), size: z.number().nullable() })) }), token, {}, threadId);
       setDownloads(result.files); setDownloadError('');
     } catch (error) { setDownloadError((error as Error).message); }
   }
@@ -77,7 +78,7 @@ export function Desktop({ visible, onClose, token, state, busy, command, tryMiss
       <button className="activity-toggle" onClick={() => setActivity(true)}><span>Session activity <span className="activity-count">{state.events.length}</span></span><span>↗</span></button>
       {state.network ? <div className="guest-downloads"><button className="text-button" disabled={blocked} onClick={() => void checkDownloads()}>Check guest downloads ↻</button>{downloads.map(file => <div className="guest-file" key={file.name}><span aria-hidden="true">▤</span><div><strong>{file.name}</strong><small>{file.size === null ? 'File in sandbox' : `${Math.ceil(file.size / 1024)} KB · in sandbox`}</small></div></div>)}{downloadError ? <p role="alert">{downloadError}</p> : null}</div> : null}
       <div className="desktop-caption">{state.network ? state.browser_origin || 'No website open yet.' : state.screen ? 'Click the preview to take a closer look.' : 'Your Mac stays separate from this workspace.'}</div>
-      <div className="sandbox-stop"><button id="stop" className="stop" disabled={state.phase === 'stopping' || !state.sandbox && !state.busy && state.phase !== 'cleanup required'} onClick={() => void command('/api/stop')}>■ &nbsp; Stop &amp; remove sandbox</button></div>
+      <div className="sandbox-stop"><button id="stop" className="stop" disabled={state.phase === 'stopping' || !state.sandbox && !busy && state.phase !== 'cleanup required'} onClick={() => void command('/api/stop')}>■ &nbsp; Stop &amp; remove sandbox</button></div>
     </section>
     <dialog ref={desktopDialog} className="desktop-dialog" aria-labelledby="desktop-title" onCancel={() => setExpanded(false)} onClose={() => setExpanded(false)}>
       <div className="dialog-heading"><div><h2 id="desktop-title">Sandbox desktop</h2><p>{state.pending || state.credential_request ? 'Paused for approval · screenshot held for review' : busy ? 'Working · updates after each action' : 'Live view · refreshes every 2 seconds'}</p></div><button className="dialog-close" aria-label="Close desktop" onClick={() => setExpanded(false)}>×</button></div>

@@ -11,13 +11,17 @@
     "node": ">=22.12"
   },
   "dependencies": {
-    "@ai-sdk/react": "4.0.173",
+    "@ai-sdk/openai-compatible": "3.0.90",
+    "@convex-dev/agent": "0.7.9",
     "ai": "7.0.169",
+    "convex": "1.49.0",
+    "convex-helpers": "0.1.127",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@types/node": "22.20.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "typescript": "7.0.2",

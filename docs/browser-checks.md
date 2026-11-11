@@ -2,7 +2,9 @@
 
 The optional check opens one isolated headless Chrome process with dummy pages.
 It does not start llama.cpp, Cua, or a VM. It does not use a personal browser profile or real credentials.
-The UI receives fake API responses from a temporary loopback server.
+The UI connects to the running local Halo and Convex backend.
+Desktop state, model health, and private-form submission are intercepted with fixture responses.
+No private form credentials reach the real executor.
 Login fixtures use a temporary local HTTPS certificate. Certificate bypass applies only to those fixtures.
 
 ## Run on this Mac
@@ -12,13 +14,13 @@ Google Chrome must already be installed. The script does not download a browser.
 ```sh
 python3 -m venv .cache/browser-check-env
 .cache/browser-check-env/bin/pip install -r requirements-browser-check.txt
-npm run build --prefix web
+bash scripts/poc.sh # Leave this running in another terminal.
 .cache/browser-check-env/bin/python scripts/check_browser.py
 ```
 
 The browser, fixture servers, temporary certificate, and dummy credential files are removed when the script ends.
 UI screenshots are saved in `artifacts/ui-offline-review.png` and `artifacts/ui-offline-mobile.png`.
-They contain fixture data rather than a real conversation.
+They can contain the default thread history. Screenshots remain in the ignored artifacts folder.
 
 ## Coverage
 
@@ -40,3 +42,6 @@ This is not a full Linux VM test. Guest provisioning, Linux dependencies, networ
 Real websites, redirects, downloads, MFA, CAPTCHA, and long model-driven tasks need separate testing.
 Screenshot masking still cannot guarantee protection against every hostile rendering technique or timing attack.
 Use dummy accounts for that next phase.
+
+The separate `scripts/check_convex.py` check covers bot creation, thread isolation, history, streaming, and cancellation.
+See [Convex architecture](convex-architecture.md) for its setup and limits.

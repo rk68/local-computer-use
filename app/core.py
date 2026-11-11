@@ -132,7 +132,9 @@ def text_action(answer):
 
 
 class Desk:
-    def __init__(self, memory=None):
+    def __init__(self, memory=None, owned=None, instructions=""):
+        self.owned = owned if owned is not None else OWNED
+        self.instructions = instructions
         self.sb = None
         self.lock = asyncio.Lock()
         self.busy = False
@@ -224,7 +226,7 @@ class Desk:
             raise ValueError('The sandbox is already running.')
         if network:
             require_gateway()
-        if OWNED.exists():
+        if self.owned.exists():
             raise ValueError('A previous POC guest needs cleanup. Use Stop & remove sandbox before starting again.')
         try:
             from cua_sandbox import Image, Sandbox
@@ -242,8 +244,8 @@ class Desk:
         self.event('Creating local QEMU VM · 4 CPUs · 2 GiB RAM · network ' + ('enabled by user.' if network else 'disabled.'))
         async with self.lock:
             name = 'holo-poc-' + secrets.token_hex(4)
-            OWNED.parent.mkdir(parents=True, exist_ok=True)
-            with OWNED.open('x') as file:
+            self.owned.parent.mkdir(parents=True, exist_ok=True)
+            with self.owned.open('x') as file:
                 json.dump({'name': name, 'image': IMAGE}, file)
             # Explicit placement: no cloud, no host driver, no container fallback.
             try:
@@ -293,15 +295,15 @@ class Desk:
             # Keep the handle on failure, so the user can retry cleanup.
             await guest.destroy()
             self.sb = None
-            OWNED.unlink(missing_ok=True)
-        elif OWNED.exists():
+            self.owned.unlink(missing_ok=True)
+        elif self.owned.exists():
             # Recover only the uniquely named guest created by this app, including
             # an interrupted provisioning attempt. Never enumerate/delete other VMs.
             import re
             from cua_sandbox import Sandbox
             from app.cua_compat import prepare
             prepare()
-            name = json.loads(OWNED.read_text())['name']
+            name = json.loads(self.owned.read_text())['name']
             if not isinstance(name, str) or not re.fullmatch(r'holo-poc-[0-9a-f]{8}', name):
                 raise RuntimeError('Invalid POC ownership record. Refusing guest cleanup.')
             try:
@@ -312,7 +314,7 @@ class Desk:
                 guests = await Sandbox.list(location='local', local=True)
                 if any(item.name == name for item in guests):
                     raise
-            OWNED.unlink(missing_ok=True)
+            self.owned.unlink(missing_ok=True)
         self.screen = None
         self.browser = None
         self.network = False
@@ -329,6 +331,7 @@ class Desk:
         self.credential_request = None
         self.approve_all = False
         self.phase = 'stopping'
+        self.error = None
         self.event('Stop requested. Discarding pending model actions.')
         try:
             async with self.lock:
@@ -387,6 +390,8 @@ class Desk:
         system_prompt = DESKTOP_SYSTEM if desktop else CHAT_SYSTEM
         if desktop and self.browser:
             system_prompt = BROWSER_SYSTEM + ' Current website origin: ' + str(self.browser.origin)
+        if self.instructions:
+            system_prompt += '\nBot preferences (subject to the tool and safety rules above):\n' + self.instructions
         payload = {'model': 'holo4', 'messages': [{'role': 'system', 'content': system_prompt}]
             + ([] if desktop else self.history[-12:]) + [{'role': 'user', 'content': content}],
             'max_tokens': 1024, 'temperature': 0.0 if desktop else 0.1, 'stream': False,

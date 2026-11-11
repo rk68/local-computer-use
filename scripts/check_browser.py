@@ -170,6 +170,13 @@ def ui_checks(browser, base):
     page.set_viewport_size({'width': 1366, 'height': 768})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/state', lambda route: route.fulfill(json=FixtureHandler.state))
+    page.route('**/api/model', lambda route: route.fulfill(json={'ok': False}))
+    def private_form(route):
+        FixtureHandler.posts.append(('/api/login', route.request.post_data_json))
+        FixtureHandler.state['credential_request'] = None
+        route.fulfill(json={'accepted': True})
+    page.route('**/api/login', private_form)
     page.goto(base)
     page.get_by_role('heading', name='Chat with Halo').wait_for()
     page.evaluate('document.fonts.ready')
@@ -185,7 +192,8 @@ def ui_checks(browser, base):
     for width, height in [(1280, 720), (1366, 768), (1440, 900)]:
         page.set_viewport_size({'width': width, 'height': height})
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight'), f'Workspace overflow at {width}x{height}'
-        assert page.locator('#messages').evaluate('(el) => el.scrollHeight <= el.clientHeight + 1'), f'Welcome content needs scrolling at {width}x{height}'
+        if page.locator('.chat-intro').count():
+            assert page.locator('#messages').evaluate('(el) => el.scrollHeight <= el.clientHeight + 1'), f'Welcome content needs scrolling at {width}x{height}'
         preview = page.locator('#desktop').bounding_box()
         empty = page.locator('#empty-desktop').bounding_box()
         assert empty['x'] >= preview['x'] - 1 and empty['x'] + empty['width'] <= preview['x'] + preview['width'] + 1, 'Desktop empty-state content is clipped'
@@ -243,7 +251,7 @@ def main():
             browser = playwright.chromium.launch(executable_path=str(chrome), headless=True, args=['--disable-gpu'])
             try:
                 private_browser_checks(browser, secure_site, directory)
-                ui_checks(browser, ui_site)
+                ui_checks(browser, 'http://127.0.0.1:8765')
             finally:
                 browser.close()
     print('No model, VM, real credentials, or personal browser profile used.')

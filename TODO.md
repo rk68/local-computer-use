@@ -57,3 +57,14 @@ Saved on 11 November 2026, in the order supplied:
 ## Deferred until after branding
 
 - [ ] Add verification-code support and multiple saved accounts.
+
+## Convex bots and threads
+
+- [x] Check Convex Agent compatibility with the installed AI SDK and React versions.
+- [x] Add local Convex, persistent bots and threads, and reactive message history.
+- [x] Preserve the old SQLite transcript with an idempotent import.
+- [x] Isolate guest ownership, approvals, and context by thread.
+- [x] Check fake-model streaming and sandbox routing through real local Convex.
+- [ ] Run a live Holo4 and multi-VM regression when resource use is acceptable.
+- [ ] Add explicit long-term memories and optional retrieval.
+- [ ] Add per-thread archive/rename and restore controls for archived bots.

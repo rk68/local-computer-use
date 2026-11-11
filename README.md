@@ -8,6 +8,11 @@ The server accepts text and screenshots through an OpenAI-compatible API.
 
 ## Current status
 
+The app now uses local Convex for bots, threads, persistent history, and text streaming.
+See [the backend architecture and setup](docs/convex-architecture.md).
+The prior live checks below covered the Python executor before this migration.
+The new integration is checked with a fake model and fake guests; a live Holo4 regression is still pending.
+
 The app passed a live Chrome test with Holo4 and the Cua Linux VM.
 The test verified text chat, screenshot questions, an approved click, and approved text entry.
 Offline practice remains the default. Online browser mode and private login are experimental additions.
@@ -32,24 +37,22 @@ bash scripts/poc.sh
 
 Open <http://127.0.0.1:8765> in your browser.
 Chat works without a sandbox. The app sends messages to your existing local Holo4 endpoint.
-SQLite saves the last 60 text chat messages in `data/chat.sqlite3`.
-Halo receives up to six recent text turns as context. The app restores those turns after a restart.
-Desktop context belongs to the current VM session.
-**Clear chat** removes the saved transcript and the current conversation context.
+Convex stores each thread's chat history. The default thread imports the previous SQLite transcript once.
+The original SQLite file remains unchanged as a recovery copy.
+Each bot has its own instructions. Each thread has its own sandbox, approvals, and desktop context.
+Create a bot with the sidebar **+**, then create threads with the **+** beside its name.
+Click a bot name to edit its instructions or archive it after stopping its sandboxes.
 
-The web app uses React, TypeScript, Vite, Zod, and Vercel AI SDK UI.
-AI SDK UI handles chat state and incremental text delivery.
-Text replies stream from llama.cpp as it generates them. **Stop generating** interrupts the active text request.
-Only completed text turns enter saved memory. Desktop proposals appear after the full action passes validation.
-The Python API owns the sandbox and calls the local llama.cpp model endpoint.
-
-The conversation domain owns messages and memory. See `web/src/conversation/` and `app/chat_memory.py`.
-The sandbox domain owns the guest action contract. See `web/src/sandbox/` and `app/sandbox_actions.py`.
-The playground coordinates the two domains. The Python API validates actions and consumes approvals.
+The frontend uses React, TypeScript, Vite, and Zod.
+The TypeScript backend uses local Convex, Convex Agent, and Vercel AI SDK.
+Text replies stream through saved Convex deltas. Replies can continue while another thread is open.
+**Stop generating** cancels the active text request.
+The Python executor retains the tested Cua action loop and private credential handling.
+See [the domain boundaries and validation limits](docs/convex-architecture.md).
 
 To try computer use:
 
-1. Click **Start sandbox**. The first run downloads the Linux image and can take several minutes.
+1. Open the desktop drawer using the right-hand control. Click **Start sandbox**. The first run downloads the Linux image and can take several minutes.
 2. Wait for the guest screenshot. The app selects desktop mode when the sandbox starts.
 3. Click **Try it** to prepare the practice task.
 4. Send the message.
@@ -84,13 +87,14 @@ After an interrupted server process, remove the recorded POC guest with:
 bash scripts/poc.sh cleanup
 ```
 
-Cleanup targets only the uniquely named guest in `.cache/cua-poc/owned-sandbox.json`.
+Cleanup targets only guests recorded in `.cache/cua-poc/owned-sandbox.json` and the per-thread ownership files.
 It retains downloaded image caches. It does not delete other VMs or change your Holo4 model files.
 If cleanup fails, the app retains its ownership record for another attempt.
 
 The Python environment is `.venv/`. Cua state uses `.cache/cua-poc/`.
 The app disables Cua telemetry through environment variables and the sandbox creation argument.
-It binds only to `127.0.0.1:8765` and blocks cross-origin API requests.
+The web executor binds to `127.0.0.1:8765` and blocks cross-origin API requests.
+The launcher also binds Convex ports 3210 and 3211 to loopback.
 The UI loads no external scripts, fonts, or analytics.
 
 If the SDK reports a missing runtime, inspect the local runtime setup from this project directory:

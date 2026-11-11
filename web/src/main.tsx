@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
-import { toChatMessages } from './conversation/messages';
-import { useLocalChat } from './conversation/use-local-chat';
-import { commandResponse, localRequest, modelResponse, sessionResponse } from './local-api';
+import { useThreadChat } from './conversation/use-thread-chat';
+import { ConvexProvider, ConvexReactClient, useMutation } from 'convex/react';
+import { api } from '../convex/_generated/api';
+import { Workspace } from './Workspace';
+import { BotThreads, type Navigation } from './components/BotThreads';
+import { commandResponse, desktopCommandPath, desktopCommandBody, localRequest, modelResponse, sessionResponse } from './local-api';
 import { PrivateLogin } from './sandbox/PrivateLogin';
 import { Desktop } from './sandbox/Desktop';
 import { actionDescription } from './sandbox/state';
@@ -16,7 +19,7 @@ import { agentMode } from './agent/presence';
 import './web.css';
 
 type ModelStatus = 'checking' | 'connected' | 'offline';
-type BootData = { token: string; state: PlaygroundState; model: ModelStatus };
+type BootData = { token: string; state: PlaygroundState; model: ModelStatus; convexUrl: string };
 
 function App() {
   const [boot, setBoot] = useState<BootData>();
@@ -24,24 +27,43 @@ function App() {
   useEffect(() => {
     let closed = false;
     async function connect() {
-      const { token } = await localRequest('/api/session', sessionResponse);
+      const { token, convex_url } = await localRequest('/api/session', sessionResponse);
       const [state, model] = await Promise.all([
         localRequest('/api/state', playgroundState, token),
         localRequest('/api/model', modelResponse, token),
       ]);
-      if (!closed) setBoot({ token, state, model: model.ok ? 'connected' : 'offline' });
+      if (!closed) setBoot({ token, state, model: model.ok ? 'connected' : 'offline', convexUrl: convex_url ?? 'http://127.0.0.1:3210' });
     }
     void connect().catch(error => { if (!closed) setFailure(String(error.message ?? error)); });
     return () => { closed = true; };
   }, []);
-  if (!boot) return <div className="boot-state" role={failure ? 'alert' : 'status'}>{failure || 'Connecting to halo…'}</div>;
-  return <Playground {...boot} />;
+  const client = useMemo(() => boot ? new ConvexReactClient(boot.convexUrl) : null, [boot?.convexUrl]);
+  useEffect(() => () => { void client?.close(); }, [client]);
+  if (!boot || !client) return <div className="boot-state" role={failure ? 'alert' : 'status'}>{failure || 'Connecting to halo…'}</div>;
+  return <ConvexProvider client={client}><Workspace token={boot.token}>{navigation => <ThreadSession key={navigation.thread._id} boot={boot} navigation={navigation} />}</Workspace></ConvexProvider>;
 }
 
-function Playground({ token, state: initialState, model: initialModel }: BootData) {
+function ThreadSession({ boot, navigation }: { boot: BootData; navigation: Navigation }) {
+  const [initial, setInitial] = useState<PlaygroundState>();
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let closed = false;
+    void localRequest('/api/state', playgroundState, boot.token, undefined, navigation.thread._id).then(state => { if (!closed) setInitial(state); }).catch(failure => { if (!closed) setError(String(failure.message ?? failure)); });
+    return () => { closed = true; };
+  }, [boot.token, navigation.thread._id]);
+  if (!initial) return <div className="boot-state" role={error ? 'alert' : 'status'}>{error || 'Opening thread…'}</div>;
+  return <Playground {...boot} state={initial} navigation={navigation} />;
+}
+
+function Playground({ token, state: initialState, model: initialModel, navigation }: BootData & { navigation: Navigation }) {
+  const { thread, bot } = navigation;
+  const threadId = thread._id;
+  const desktopCommand = useMutation(api.runs.command);
+  const clearHistory = useMutation(api.workspace.clear);
   const [state, setState] = useState(initialState);
   const [model, setModel] = useState(initialModel);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => { try { return sessionStorage.getItem(`halo-draft:${threadId}`) ?? ''; } catch { return ''; } });
+  useEffect(() => { try { sessionStorage.setItem(`halo-draft:${threadId}`, draft); } catch { /* Keep the draft in memory. */ } }, [draft, threadId]);
   const [desktop, setDesktop] = useState(initialState.sandbox);
   const [error, setError] = useState('');
   const [dismissedError, setDismissedError] = useState<string | null>(null);
@@ -53,6 +75,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   });
   const latestRequest = useRef(0);
   const messageList = useRef<HTMLDivElement>(null);
+  const lastMessage = useRef('');
   const input = useRef<HTMLTextAreaElement>(null);
   const resizeComposer = useCallback(() => {
     const element = input.current;
@@ -70,11 +93,10 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   useEffect(() => {
     try { localStorage.setItem('holo-desktop-visible', String(showDesktop)); } catch { /* Keep the in-memory preference. */ }
   }, [showDesktop]);
-  const initialMessages = useMemo(() => toChatMessages(initialState.messages), [initialState.messages]);
   const refresh = useCallback(async () => {
     const requestId = ++latestRequest.current;
     try {
-      const next = await localRequest('/api/state', playgroundState, token);
+      const next = await localRequest('/api/state', playgroundState, token, undefined, threadId);
       if (latestRequest.current === requestId) {
         setState(next);
         setConnectionError('');
@@ -82,14 +104,13 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
     } catch (failure) {
       if (latestRequest.current === requestId) setConnectionError((failure as Error).message);
     }
-  }, [token]);
-  const onFinish = useCallback(() => { void refresh(); }, [refresh]);
-  const chat = useLocalChat(token, initialMessages, onFinish);
+  }, [token, threadId]);
+  const chat = useThreadChat(token, threadId, thread.run, thread.error);
   const generating = chat.status === 'submitted' || chat.status === 'streaming';
   const busy = commandBusy || state.busy || state.phase === 'stopping'
-    || generating;
+    || generating || !!thread.activeRunId;
   const pending = state.pending;
-  const presence = agentMode(state, chat.status, desktop);
+  const presence = agentMode({ ...state, busy, phase: state.busy ? state.phase : thread.run?.command === '/api/start' ? 'starting VM' : thread.run?.kind === 'desktop' ? 'thinking' : state.phase }, chat.status, desktop);
   const visibleError = error || connectionError || state.error || chat.error?.message;
 
   useEffect(() => {
@@ -104,12 +125,11 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   }, [refresh]);
   useEffect(() => { setDesktop(state.sandbox); }, [state.sandbox, state.sandbox_id]);
   useEffect(() => {
-    if (messageList.current) messageList.current.scrollTop = messageList.current.scrollHeight;
+    const last = chat.messages.at(-1);
+    const revision = last ? last.id + last.parts.flatMap(p => p.type === 'text' ? [p.text] : []).join('') : '';
+    if (messageList.current && revision !== lastMessage.current) messageList.current.scrollTop = messageList.current.scrollHeight;
+    lastMessage.current = revision;
   }, [chat.messages, presence]);
-  const serverTranscript = JSON.stringify(state.messages);
-  useEffect(() => {
-    if (!generating && !state.busy) chat.setMessages(toChatMessages(state.messages));
-  }, [serverTranscript, generating, state.busy, chat.setMessages]);
 
   async function command(path: string, body: object = {}) {
     setCommandBusy(true);
@@ -117,7 +137,12 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
     setDismissedError(null);
     chat.clearError();
     try {
-      await localRequest(path, commandResponse, token, body);
+      if (['/api/login', '/api/forget-login', '/api/refresh', '/api/clear-chat'].includes(path)) {
+        await localRequest(path, commandResponse, token, body, threadId);
+        if (path === '/api/clear-chat') await clearHistory({ token, threadId });
+      } else {
+        await desktopCommand({ token, threadId, path: desktopCommandPath.parse(path), body: desktopCommandBody.parse(body) });
+      }
       await refresh();
       return true;
     } catch (failure) {
@@ -162,7 +187,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
   }
 
   async function clearChat() {
-    if (await command('/api/clear-chat')) chat.setMessages([]);
+    await command('/api/clear-chat');
   }
 
   return <>
@@ -172,19 +197,19 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
         <img className="brand-logo brand-logo-dark" src="/brand/halo-lockup-white.svg" width="121" height="40" alt="halo" />
         <img className="brand-logo brand-logo-light" src="/brand/halo-lockup-black.svg" width="121" height="40" alt="halo" />
       </a>
-      <button className="nav active agent-nav" onClick={() => input.current?.focus()}><HoloAvatar small /><span>Halo<small>Your local assistant</small></span></button>
+      <BotThreads token={token} {...navigation} />
       <div className="local-note"><span className="dot" /> Inference on your Mac</div>
     </aside>
     <main>
-      <header><div className="breadcrumb">Your workspace</div><div className="header-actions"><div className="model-pill"><span className={`dot ${model === 'connected' ? 'on' : model === 'offline' ? 'off' : ''}`} />
+      <header><div className="breadcrumb"><span className="breadcrumb-bot">{bot.name}</span><span>/</span>{thread.title}</div><div className="header-actions"><div className="model-pill"><span className={`dot ${model === 'connected' ? 'on' : model === 'offline' ? 'off' : ''}`} />
           <span id="model-status">{model === 'checking' ? 'Checking Holo4…' : model === 'connected' ? 'Holo4 connected' : 'Holo4 offline'}</span>
           <button id="model-check" className="icon-button" aria-label="Check model connection" onClick={() => void checkModel()}>↻</button>
         </div><ThemeToggle /></div></header>
       {visibleError && visibleError !== dismissedError ? <Notice message={visibleError} onDismiss={() => setDismissedError(visibleError)} /> : null}
       <div className="panels" data-desktop-visible={showDesktop}>
-        <Desktop token={token} visible={showDesktop} onClose={() => setShowDesktop(false)} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }} />
+        <Desktop token={token} threadId={threadId} visible={showDesktop} onClose={() => setShowDesktop(false)} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }} />
         <section className="chat-panel panel" aria-label="Chat">
-          <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with Halo</h2></div>
+          <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with {bot.name}</h2></div>
             <div className="chat-heading-actions">
               <button id="clear-chat" className="icon-button" title="Clear chat" aria-label="Clear chat" disabled={busy || pending !== null || state.credential_request !== null || !chat.messages.length} onClick={() => void clearChat()}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -195,15 +220,16 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
             </div>
           </div>
           <div className="messages" id="messages" role="log" aria-live="polite" ref={messageList}>
+            {chat.hasMore ? <button className="history-more secondary" disabled={chat.loadingHistory} onClick={chat.loadMore}>{chat.loadingHistory ? 'Loading…' : 'Earlier messages'}</button> : null}
             {chat.messages.length ? chat.messages.map(message => (
               <div className={`message-row ${message.role}`} key={message.id}>
                 {message.role === 'assistant' ? <HoloAvatar /> : null}
                 <div className={`message ${message.role}`}>
-                  <div className="message-label">{message.role === 'assistant' ? 'Halo' : message.role === 'user' ? 'You' : 'Playground'}</div>
+                  <div className="message-label">{message.role === 'assistant' ? bot.name : message.role === 'user' ? 'You' : 'Playground'}</div>
                   {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
                 </div>
               </div>
-            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>Put Halo to work.</h3>
+            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>Put {bot.name} to work.</h3>
               <p>An extra pair of hands for the tabs, clicks, and little tasks between you and your next idea.</p>
               <div className="welcome-cards">
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('What can you help me with?'); }}><span className="card-symbol" aria-hidden="true">↗</span><strong>Start a conversation</strong><span>Think something through together.</span></button>

@@ -14,15 +14,17 @@ import threading
 import time
 from urllib.parse import urlsplit
 
-from app.core import Desk, LOGGER, model_request
+from app.core import Desk, LOGGER, model_request, OWNED
 from app.chat_memory import ChatMemory
 
 HOST, PORT = '127.0.0.1', 8765
 ORIGIN = f'http://{HOST}:{PORT}'
-TOKEN = secrets.token_urlsafe(32)
+_token_file = Path(__file__).resolve().parents[1] / '.cache/halo/session-token'
+TOKEN = os.environ.get('HALO_SESSION_TOKEN') or (_token_file.read_text().strip() if _token_file.exists() else secrets.token_urlsafe(32))
+CONVEX_URL = os.environ.get('HALO_CONVEX_URL', 'http://127.0.0.1:3210')
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / 'web/dist'
-CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:3210 ws://127.0.0.1:3210; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
 
 class ConversationStream:
@@ -40,38 +42,68 @@ class Runtime:
         self.thread = threading.Thread(target=self.loop.run_forever, daemon=True)
         self.thread.start()
         self.desk = self.call(self.create())
+        self.desks = {"default": self.desk}
 
     async def create(self):
         database = Path(os.environ.get('HOLO_CHAT_DB', ROOT / 'data/chat.sqlite3'))
         return Desk(memory=ChatMemory(database))
 
+    def resolve(self, thread_id):
+        if thread_id == 'default':
+            return self.desk
+        if not isinstance(thread_id, str) or not re.fullmatch(r'[a-z0-9]{20,64}', thread_id):
+            raise ValueError('Invalid thread ID.')
+        if thread_id not in self.desks:
+            desk = Desk(owned=OWNED.parent / 'threads' / (thread_id + '.json'))
+            if desk.owned.exists():
+                desk.phase = 'cleanup required'
+                desk.error = 'This thread has a recorded sandbox from a previous session. Use Stop before starting it again.'
+            self.desks[thread_id] = desk
+        return self.desks[thread_id]
+
     def call(self, coroutine, timeout=10):
         return asyncio.run_coroutine_threadsafe(coroutine, self.loop).result(timeout)
 
-    async def open_conversation(self, body):
+    async def open_conversation(self, body, thread_id="default"):
+        desk = self.resolve(thread_id)
         request_id = body.get('request_id') or secrets.token_hex(16)
         if not isinstance(request_id, str) or not re.fullmatch(r'[a-zA-Z0-9-]{1,80}', request_id):
             raise ValueError('Invalid conversation request ID.')
-        if self.desk.phase in {'stopping', 'cleanup required'}:
+        if desk.phase in {'stopping', 'cleanup required'}:
             raise ValueError('Wait for sandbox cleanup to complete.')
         channel = ConversationStream(request_id)
-        self.desk.launch(self.complete_conversation(channel, body))
+        desk.launch(self.complete_conversation(channel, body, desk))
         return channel
 
-    async def complete_conversation(self, channel, body):
+    async def complete_conversation(self, channel, body, desk):
         try:
-            reply = await self.desk.chat(body.get('message'), body.get('desktop') is True,
+            reply = await desk.chat(body.get('message'), body.get('desktop') is True,
                                          on_delta=channel.delta, request_id=channel.request_id)
             channel.events.put(('abort', None) if reply is None else ('done', reply))
         except Exception as exc:
             channel.events.put(('error', str(exc)))
             raise
 
-    async def cancel_conversation(self, request_id):
-        self.desk.cancel_conversation(request_id)
+    async def cancel_conversation(self, request_id, thread_id="default"):
+        self.resolve(thread_id).cancel_conversation(request_id)
 
-    async def dispatch(self, path, body):
-        desk = self.desk
+    async def dispatch(self, path, body, thread_id="default"):
+        desk = self.resolve(thread_id)
+        if path == '/api/thread-context':
+            if desk.busy or desk.pending or desk.credential_request:
+                raise ValueError('This thread is already working or awaiting approval.')
+            instructions = body.get('instructions', '')
+            messages = body.get('messages', [])
+            if not isinstance(instructions, str) or len(instructions) > 4000 or not isinstance(messages, list) or len(messages) > 100:
+                raise ValueError('Invalid thread context.')
+            if any(not isinstance(m, dict) or m.get('role') not in {'user', 'assistant', 'system'} or not isinstance(m.get('text'), str) or len(m['text']) > 20000 for m in messages):
+                raise ValueError('Invalid thread messages.')
+            desk.instructions = instructions
+            desk.messages = messages[-60:]
+            desk.history = [{'role': m['role'], 'content': m['text']} for m in messages[-12:] if m['role'] != 'system']
+            return desk.snapshot()
+        if path == '/api/legacy-history':
+            return {'messages': self.desk.memory.read() if self.desk.memory else []}
         if path == '/api/state':
             return desk.snapshot()
         if path == '/api/model':
@@ -119,8 +151,8 @@ class Runtime:
         return {'accepted': True}
 
     async def shutdown(self):
-        await self.desk.stop()
-        tasks = list(self.desk.tasks)
+        await asyncio.gather(*(desk.stop() for desk in self.desks.values()))
+        tasks = [task for desk in self.desks.values() for task in desk.tasks]
         if tasks:
             await asyncio.wait(tasks, timeout=5)
 
@@ -130,6 +162,8 @@ class Runtime:
         finally:
             self.loop.call_soon_threadsafe(self.loop.stop)
             self.thread.join(timeout=2)
+            if not self.thread.is_alive():
+                self.loop.close()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -180,7 +214,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.trusted(api=path.startswith('/api/') and path != '/api/session'):
             return
         if path == '/api/session':
-            self.respond(200, {'token': TOKEN})
+            self.respond(200, {'token': TOKEN, 'convex_url': CONVEX_URL})
         elif path in {'/api/state', '/api/model'}:
             self.perform(path, {})
         else:
@@ -217,8 +251,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Use application/json.')
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 16384:
-                raise ValueError('Request must be 1–16,384 bytes.')
+            if not 0 < length <= (512000 if urlsplit(self.path).path == "/api/thread-context" else 16384):
+                raise ValueError('Request body is empty or too large.')
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict):
                 raise ValueError('Expected a JSON object.')
@@ -232,7 +266,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/conversation':
                 self.respond_conversation(body)
                 return
-            result = self.server.runtime.call(self.server.runtime.dispatch(path, body))
+            result = self.server.runtime.call(self.server.runtime.dispatch(path, body, self.headers.get("X-Halo-Thread", "default")))
             self.respond(200, result)
         except (BrokenPipeError, ConnectionResetError):
             return
@@ -246,7 +280,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
     def respond_conversation(self, body):
-        channel = self.server.runtime.call(self.server.runtime.open_conversation(body))
+        channel = self.server.runtime.call(self.server.runtime.open_conversation(body, self.headers.get("X-Halo-Thread", "default")))
         part_id = secrets.token_hex(8)
         streamed = False
         try:
@@ -290,9 +324,9 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b'data: [DONE]\n\n')
             self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
-            self.server.runtime.call(self.server.runtime.cancel_conversation(channel.request_id))
+            self.server.runtime.call(self.server.runtime.cancel_conversation(channel.request_id, self.headers.get("X-Halo-Thread", "default")))
         except Exception:
-            self.server.runtime.call(self.server.runtime.cancel_conversation(channel.request_id))
+            self.server.runtime.call(self.server.runtime.cancel_conversation(channel.request_id, self.headers.get("X-Halo-Thread", "default")))
             LOGGER.exception('Conversation delivery failed')
 
 
