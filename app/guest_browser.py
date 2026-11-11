@@ -39,6 +39,16 @@ class PrivacyBlocked(Exception):
     """A known rendering surface cannot be safely inspected by the model."""
 
 
+class PrivateLoginRequired(Exception):
+    """Ordinary model typing cannot fill a credential field."""
+
+
+def guard_private_input(page):
+    focused = page.locator(':focus')
+    if focused.count() and focused.evaluate("el => el.tagName === 'INPUT' && (el.type === 'password' || el.autocomplete === 'username' || el.autocomplete === 'one-time-code' || (['text','email'].includes(el.type) && !!document.querySelector('input[type=password]')))"):
+        raise PrivateLoginRequired
+
+
 def secret_matcher(value):
     # Match case changes and invisible/inter-character spacing without huge regexes.
     gap = r'[\s\u200b\u200c\u200d\ufeff]*'
@@ -62,21 +72,34 @@ def prepare_context(browser):
     return context
 
 
+DOWNLOAD_CONTROLS = {}
+
+
+def configure_downloads(browser, context, page):
+    if context in DOWNLOAD_CONTROLS:
+        return
+    metadata_session = context.new_cdp_session(page)
+    try:
+        target = metadata_session.send('Target.getTargetInfo')['targetInfo']
+    finally:
+        metadata_session.detach()
+    options = {'behavior': 'allow', 'downloadPath': str(DOWNLOADS), 'eventsEnabled': True}
+    if isinstance(target.get('browserContextId'), str):
+        options['browserContextId'] = target['browserContextId']
+    # Keep the browser-level controller alive. Detaching a temporary controller
+    # can reset Chromium's download behaviour and suppress completion events.
+    controller = browser.new_browser_cdp_session()
+    controller.send('Browser.setDownloadBehavior', options)
+    DOWNLOAD_CONTROLS[context] = controller
+
+
 def operate(request, browser):
     context = browser.contexts[-1]
     pages = [page for page in context.pages if not page.is_closed()]
     page = pages[-1] if pages else context.new_page()
     page.set_default_timeout(5000)
     page.set_viewport_size({'width': 1280, 'height': 800})
-    cdp = context.new_cdp_session(page)
-    try:
-        target = cdp.send('Target.getTargetInfo')['targetInfo']
-        options = {'behavior': 'allow', 'downloadPath': str(DOWNLOADS)}
-        if isinstance(target.get('browserContextId'), str):
-            options['browserContextId'] = target['browserContextId']
-        cdp.send('Browser.setDownloadBehavior', options)
-    finally:
-        cdp.detach()
+    configure_downloads(browser, context, page)
     # Public HTTPS only. This is application filtering, not a VM firewall.
     def route_request(route):
         try:
@@ -89,6 +112,7 @@ def operate(request, browser):
     context.unroute('**/*')
     context.route('**/*', route_request)
     operation = request['operation']
+    target_label = None
     privacy_path = PRIVATE / 'privacy.json'
     secrets = json.loads(privacy_path.read_text()) if privacy_path.exists() else []
     if operation == 'navigate':
@@ -118,11 +142,17 @@ def operate(request, browser):
         password.fill(request['password'])
         # Fill only. The model can propose the visible sign-in button afterward.
     elif operation == 'click':
+        target_label = page.evaluate("point => { const node=document.elementFromPoint(point.x,point.y)?.closest('button,a,input[type=submit],input[type=button]'); return node ? (node.innerText || node.getAttribute('aria-label') || node.value || '').trim().slice(0,120) : null; }", {'x': request['x'], 'y': request['y']})
+        if isinstance(target_label, str):
+            for value in secrets:
+                target_label = secret_matcher(value).sub('[private]', target_label)
         page.mouse.click(request['x'], request['y'])
     elif operation == 'type':
+        guard_private_input(page)
         page.keyboard.insert_text(request['text'])
     elif operation == 'replace_text':
         page.mouse.click(request['x'], request['y'])
+        guard_private_input(page)
         page.keyboard.press('Control+a')
         page.keyboard.insert_text(request['text'])
     elif operation == 'key':
@@ -151,7 +181,7 @@ def operate(request, browser):
     current = origin(page.url) if public_url(page.url) else None
     (PRIVATE / 'screen.png').write_bytes(png)
     os.chmod(PRIVATE / 'screen.png', 0o600)
-    return {'ok': True, 'origin': current}
+    return {'ok': True, 'origin': current, 'target_label': target_label}
 
 
 def run(request):
@@ -161,7 +191,9 @@ def run(request):
         return operate(request, browser)
 
 
-def failure(privacy=False):
+def failure(privacy=False, login=False):
+    if login:
+        return {'ok': False, 'error_code': 'private-login-required'}
     return {'ok': False, 'error_code': 'privacy-blocked' if privacy else 'operation-failed'}
 
 
@@ -197,6 +229,8 @@ def serve():
                 result = operate(request, browser)
             except PrivacyBlocked:
                 result = failure(privacy=True)
+            except PrivateLoginRequired:
+                result = failure(login=True)
             except Exception:
                 result = failure()  # Never print Playwright exceptions containing values.
             result['request_id'] = request.get('request_id')

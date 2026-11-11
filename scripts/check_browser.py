@@ -12,6 +12,7 @@ import ssl
 import subprocess
 import sys
 import tempfile
+import time
 import threading
 from unittest.mock import patch
 from urllib.parse import urlsplit
@@ -24,7 +25,7 @@ USERNAME = 'dummy.person@example.test'
 PASSWORD = 'TEST-ONLY-DO-NOT-USE-4729'
 FIXTURE = '''<!doctype html><meta charset="utf-8"><style>
 body{font:18px system-ui;background:white;color:black;padding:24px}input{display:block;width:400px;padding:12px;margin:12px 0}#echo,#changed{padding:16px;min-height:24px}canvas,svg,iframe{display:block;width:400px;height:60px;margin:12px 0}#public{padding:20px;background:#00bfa0}
-</style><p id="public">Public content stays visible</p><input type="email" id="username"><input type="password" id="password"><div id="echo"></div><div id="changed"></div><canvas id="canvas" width="400" height="60"></canvas><svg id="vector" viewBox="0 0 400 60"><path d="M0 0h400v60H0Z" fill="red"/></svg><iframe srcdoc="<p>TEST-ONLY-DO-NOT-USE-4729</p>"></iframe><div id="shadow"></div><script>
+</style><p id="public">Public content stays visible</p><a id="download" href="/fixture-download.txt">Download test file</a><input type="email" id="username"><input type="password" id="password"><div id="echo"></div><div id="changed"></div><canvas id="canvas" width="400" height="60"></canvas><svg id="vector" viewBox="0 0 400 60"><path d="M0 0h400v60H0Z" fill="red"/></svg><iframe srcdoc="<p>TEST-ONLY-DO-NOT-USE-4729</p>"></iframe><div id="shadow"></div><script>
 username.addEventListener('input',()=>echo.textContent=username.value);
 password.addEventListener('input',()=>{const c=canvas.getContext('2d');c.fillStyle='red';c.fillRect(0,0,400,60);c.fillStyle='white';c.fillText(password.value,10,30)});
 </script>'''
@@ -53,7 +54,15 @@ class FixtureHandler(SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path == '/login':
+        if self.path == '/fixture-download.txt':
+            body = b'fixture-only download\n'
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Content-Disposition', 'attachment; filename=fixture-download.txt')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif self.path == '/login':
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
@@ -115,8 +124,15 @@ def private_browser_checks(browser, base, directory):
     # Tests bypass the public-address rule only for this loopback fixture.
     def local_fixture(value):
         return urlsplit(value).hostname in {'127.0.0.1', 'localhost'}
-    with patch.object(guest_browser, 'PRIVATE', directory), patch.object(guest_browser, 'public_url', side_effect=local_fixture):
+    downloads = directory / 'downloads'
+    downloads.mkdir()
+    with patch.object(guest_browser, 'PRIVATE', directory), patch.object(guest_browser, 'DOWNLOADS', downloads), patch.object(guest_browser, 'public_url', side_effect=local_fixture):
         guest_browser.operate({'operation': 'login', 'origin': 'https://127.0.0.1', 'username': USERNAME, 'password': PASSWORD}, browser)
+        try:
+            guest_browser.operate({'operation': 'type', 'text': 'MUST-NOT-BE-TYPED'}, browser)
+            raise AssertionError('Ordinary typing into a credential field was accepted')
+        except guest_browser.PrivateLoginRequired:
+            assert page.locator('#password').input_value() == PASSWORD
         png = (directory / 'screen.png').read_bytes()
         for selector in ['#username', '#password', '#echo', '#canvas', '#vector', 'iframe']:
             masked_pixels(page, png, selector)
@@ -136,8 +152,15 @@ def private_browser_checks(browser, base, directory):
         except ValueError:
             assert page.locator('#username').input_value() == ''
             assert page.locator('#password').input_value() == ''
+        page.goto(base + '/login')
+        bounds = page.locator('#download').bounding_box()
+        guest_browser.operate({'operation': 'click', 'x': bounds['x'] + 10, 'y': bounds['y'] + 5}, browser)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not (downloads / 'fixture-download.txt').exists():
+            page.wait_for_timeout(100)
+        assert (downloads / 'fixture-download.txt').read_bytes() == b'fixture-only download\n'
     context.close()
-    print('PASS: rendered field/media masks, changed credential text, closed-shadow blocking, and changed-origin rejection.')
+    print('PASS: rendered masks, private typing guard, closed-shadow blocking, changed-origin rejection, and an actual browser download.')
 
 
 def ui_checks(browser, base):

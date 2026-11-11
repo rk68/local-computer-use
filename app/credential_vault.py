@@ -20,6 +20,12 @@ def website_origin(value):
         raise ValueError('Credentials require an HTTPS website on port 443, without URL credentials.') from None
 
 
+def explicit_login_requested(goal):
+    without_urls = re.sub(r'https?://\S+', '', goal, flags=re.IGNORECASE)
+    return bool(re.search(r'\b(?:log\s+(?:me\s+)?in(?:to)?|sign\s+(?:me\s+)?in(?:to)?|authenticate)\b', without_urls, re.IGNORECASE)
+                or re.match(r'^\s*(?:please\s+)?login\b', without_urls, re.IGNORECASE))
+
+
 class CredentialVault:
     def __init__(self, backend=None):
         self._backend = backend

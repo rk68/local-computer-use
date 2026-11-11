@@ -47,8 +47,9 @@ Saved on 11 November 2026, in the order supplied:
 - [x] Add origin-scoped private login forms and optional macOS Keychain storage.
 - [x] Mask inputs, known credential text, and media after credential use.
 - [x] Add a separate completion assessment and a repeated-action guard.
-- [ ] Test online VM startup, downloads, and private login with dummy accounts when the user resumes VM testing.
-- [ ] Check long tasks against real screenshots when the local model is available.
+- [x] Test online VM startup, downloads, private login, and Keychain save/reuse/delete with a demo account. See `docs/live-validation-2026-11-11.md`.
+- [x] Verify an eight-action online task against real screenshots and the executed-step trail.
+- [ ] Run the longer offline practice-form regression.
 - [x] Check rendered masks against reflected credentials, case/spacing changes, media, and closed shadow content using dummy pages.
 - [ ] Validate masking inside the actual guest, including hostile page timing and rendering changes.
 - [ ] Add CAPTCHA, MFA, and multi-account support after the basic login flow passes live tests.

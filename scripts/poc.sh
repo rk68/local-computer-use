@@ -20,6 +20,7 @@ if [[ "${1:-}" == setup ]]; then
   "$ROOT/.venv/bin/python" -m pip install -r requirements-poc.txt
   "$ROOT/.venv/bin/python" -c 'from cua_sandbox import Image, Sandbox; print("Cua SDK import: OK")'
   "$ROOT/.venv/bin/python" -m app.cua_compat
+  "$ROOT/.venv/bin/python" scripts/setup_gateway.py
   build_web setup
   echo 'Setup complete. Run: bash scripts/poc.sh'
   exit 0

@@ -23,11 +23,17 @@ class PrivacyViewBlocked(RuntimeError):
         super().__init__('Private view blocked: this page cannot be masked safely. Stop the sandbox before continuing.')
 
 
+class PrivateLoginRequired(RuntimeError):
+    def __init__(self):
+        super().__init__('Use the private login form for credential fields.')
+
+
 class BrowserSession:
     def __init__(self, guest):
         self.guest = guest
         self.origin = None
         self.screen = None
+        self.last_target = None
 
     async def prepare(self):
         await self.guest.files.write_text('/tmp/holo-browser.py', (ROOT / 'app/guest_browser.py').read_text())
@@ -47,6 +53,8 @@ class BrowserSession:
             data = json.loads(result.stdout)
             if data.get('request_id') != request_id:
                 raise ValueError
+            if data.get('error_code') == 'private-login-required':
+                raise PrivateLoginRequired
             if data.get('error_code') == 'privacy-blocked':
                 raise PrivacyViewBlocked
             if data.get('ok') is not True:
@@ -56,8 +64,10 @@ class BrowserSession:
                 raise ValueError
             self.screen = png
             self.origin = data.get('origin')
+            target = data.get('target_label')
+            self.last_target = target if isinstance(target, str) and len(target) <= 120 else None
             return png
-        except PrivacyViewBlocked:
+        except (PrivacyViewBlocked, PrivateLoginRequired):
             raise
         except Exception:
             # Neither SDK errors nor browser errors may quote a credential payload.

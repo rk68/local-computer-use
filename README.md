@@ -8,7 +8,8 @@ The server accepts text and screenshots through an OpenAI-compatible API.
 The app passed a live Chrome test with Holo4 and the Cua Linux VM.
 The test verified text chat, screenshot questions, an approved click, and approved text entry.
 Offline practice remains the default. Online browser mode and private login are experimental additions.
-Unit tests use fake guests. Isolated Chrome checks use rendered dummy pages; live VM validation is still pending. See [online browser setup](docs/online-browser.md) and [isolated browser checks](docs/browser-checks.md).
+Live checks passed for online startup, private login, Keychain reuse, downloads, and an eight-action task.
+See [validation results](docs/live-validation-2026-11-11.md). See [online browser setup](docs/online-browser.md) and [isolated browser checks](docs/browser-checks.md).
 
 ## Chat and sandbox POC
 
@@ -70,7 +71,7 @@ Holo inspects a fresh screenshot after each action and continues through the par
 For example: “Change the name to Alice and set the short note to Hello from Holo.”
 Each sandbox permits 20 action attempts, including automatically approved actions.
 Automatic approval resets when you stop the sandbox.
-A separate screenshot assessment checks completion. Three identical actions pause the task.
+A separate assessment checks the screenshot, executed steps, and sandbox state. Repeated actions pause when the screen stops progressing.
 Stop discards pending proposals and removes the guest. An input event already sent cannot be undone.
 Ctrl+C also attempts guest cleanup. Closing the browser tab does not stop the server.
 

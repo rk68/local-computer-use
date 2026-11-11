@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from app import core, guest_browser
 from app.browser_session import BrowserSession, PrivacyViewBlocked
-from app.credential_vault import CredentialVault, website_origin
+from app.credential_vault import CredentialVault, website_origin, explicit_login_requested
 from app.desktop_task import DesktopTask
 from app.task_verification import verify_completion
 
@@ -23,6 +23,12 @@ class Vault(unittest.TestCase):
         for bad in ['http://example.com', 'https://user:pass@example.com', 'https://example.com:8443', 'file:///tmp/test', None]:
             with self.subTest(value=bad), self.assertRaises(ValueError):
                 website_origin(bad)
+
+    def test_opening_login_page_does_not_request_signin(self):
+        self.assertFalse(explicit_login_requested('Open https://example.com/login'))
+        self.assertFalse(explicit_login_requested('Open the login page'))
+        self.assertTrue(explicit_login_requested('Sign in to the current website'))
+        self.assertTrue(explicit_login_requested('Log me into https://example.com'))
 
     def test_credentials_only_use_selected_keychain_backend(self):
         backend = MagicMock()
@@ -80,6 +86,19 @@ class BrowserBoundary(unittest.TestCase):
         guest_browser.prepare_context(browser)
         self.assertEqual(order, ['create context', 'open new', 'close old'])
 
+    def test_download_controller_stays_attached_and_is_not_reset_per_action(self):
+        browser = MagicMock()
+        context = MagicMock()
+        context.new_cdp_session.return_value.send.return_value = {'targetInfo': {'browserContextId': 'test-context'}}
+        page = MagicMock()
+        guest_browser.configure_downloads(browser, context, page)
+        guest_browser.configure_downloads(browser, context, page)
+        browser.new_browser_cdp_session.assert_called_once()
+        controller = browser.new_browser_cdp_session.return_value
+        controller.send.assert_called_once()
+        self.assertTrue(controller.send.call_args.args[1]['eventsEnabled'])
+        controller.detach.assert_not_called()
+
     def test_login_masks_fields_secret_text_and_media(self):
         with tempfile.TemporaryDirectory() as directory:
             page = MagicMock()
@@ -100,7 +119,7 @@ class BrowserBoundary(unittest.TestCase):
                 result = guest_browser.run({'operation': 'login', 'origin': 'https://example.com', 'username': 'secret-email', 'password': 'secret-password'})
             username.fill.assert_called_once_with('secret-email')
             password.fill.assert_called_once_with('secret-password')
-            self.assertEqual(result, {'ok': True, 'origin': 'https://example.com'})
+            self.assertEqual(result, {'ok': True, 'origin': 'https://example.com', 'target_label': None})
             self.assertNotIn('secret-email', json.dumps(result))
             patterns = [call.args[0] for call in page.get_by_text.call_args_list]
             self.assertTrue(any(pattern.fullmatch('SECRET-PASSWORD') for pattern in patterns))
@@ -200,6 +219,19 @@ class Completion(unittest.IsolatedAsyncioTestCase):
             response = {'choices': [{'message': {'content': json.dumps(result)}}]}
             with self.subTest(result=result), self.assertRaises(RuntimeError):
                 await verify_completion(MagicMock(return_value=response), 'Two changes', 'image-data')
+
+    async def test_alternating_action_cycle_is_bounded(self):
+        task = DesktopTask('Find a link', 1)
+        for action in ['up', 'down', 'up', 'down', 'up']:
+            task.record(action)
+        with self.assertRaisesRegex(ValueError, 'cycle repeated'):
+            task.record('down')
+
+    async def test_repeated_clicks_are_allowed_when_the_screen_changes(self):
+        task = DesktopTask('Add five elements', 1)
+        for number in range(5):
+            task.record('click Add Element', screen_digest=f'visible-elements-{number}')
+        self.assertEqual(len(task.recent_actions), 5)
 
     async def test_repeated_actions_are_bounded(self):
         task = DesktopTask('Click a field', 1)

@@ -283,7 +283,7 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
         browser = SimpleNamespace(prepare=AsyncMock(), call=AsyncMock(return_value=b'\x89PNG\r\n\x1a\nimage'), origin=None)
         sdk = SimpleNamespace(Image=SimpleNamespace(from_registry=lambda reference: reference),
                               Sandbox=SimpleNamespace(create=AsyncMock(return_value=self.guest)))
-        with patch.dict('sys.modules', {'cua_sandbox': sdk}), patch.object(core, 'BrowserSession', return_value=browser), patch.object(core.asyncio, 'sleep', new=AsyncMock()):
+        with patch.dict('sys.modules', {'cua_sandbox': sdk}), patch.object(core, 'require_gateway'), patch.object(core, 'BrowserSession', return_value=browser), patch.object(core.asyncio, 'sleep', new=AsyncMock()):
             await self.desk.start(network=True)
         self.assertEqual(sdk.Sandbox.create.call_args.kwargs['network'], 'default')
         self.assertTrue(self.desk.network)
@@ -304,6 +304,31 @@ class GuestLifecycle(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(RuntimeError, 'Result is missing'):
                 await self.desk.chat('Click name', True)
         self.assertNotIn('All done', str(self.desk.messages))
+
+    async def test_completion_only_exposes_filenames_already_named_by_user(self):
+        self.desk.browser = SimpleNamespace(origin='https://example.com', call=AsyncMock(return_value=b'\x89PNG\r\n\x1a\nimage'))
+        self.guest.files.list = AsyncMock(return_value=[
+            SimpleNamespace(name='sample.csv', is_dir=False),
+            SimpleNamespace(name='private-address@example.test.txt', is_dir=False),
+            SimpleNamespace(name='unfinished.crdownload', is_dir=False)])
+        self.desk.desktop_task = core.DesktopTask('Download sample.csv', self.desk.epoch, steps=1)
+        with patch.object(core, 'verify_completion', new=AsyncMock(return_value='Requested file exists.')) as verify:
+            await self.desk.finish_desktop_reply('Download sample.csv', 'Done', True, self.desk.epoch)
+        observations = verify.call_args.args[3]
+        self.assertEqual(observations['requested_files_present'], ['sample.csv'])
+        self.assertEqual(observations['completed_download_count'], 2)
+        self.assertNotIn('private-address', str(observations))
+
+    async def test_opening_login_page_does_not_open_private_form(self):
+        self.desk.network = True
+        self.desk.browser = SimpleNamespace(origin='https://example.com', call=AsyncMock(return_value=b'\x89PNG\r\n\x1a\nimage'))
+        self.desk.desktop_task = core.DesktopTask('Open https://example.com/login', self.desk.epoch, steps=1)
+        response = model_action({'reason': 'Login page visible'})
+        response['choices'][0]['message']['tool_calls'][0]['function']['name'] = 'desktop_request_login'
+        with patch.object(core, 'model_request', return_value=response):
+            await self.desk.chat('Open https://example.com/login', True, task_step=True)
+        self.assertIsNone(self.desk.credential_request)
+        core.verify_completion.assert_awaited_once()
 
     async def test_create_enforces_local_vm_no_network_and_no_mounts(self):
         self.desk.sb = None

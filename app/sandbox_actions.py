@@ -88,3 +88,10 @@ LOGIN_TOOL = {'type': 'function', 'function': {
     'parameters': {'type': 'object', 'additionalProperties': False,
                    'properties': {'reason': {'type': 'string'}}, 'required': ['reason']},
 }}
+
+TOOLS.append({'type': 'function', 'function': {
+    'name': 'desktop_blocked',
+    'description': 'Report an incomplete task, missing target, or obstacle. Do not claim success.',
+    'parameters': {'type': 'object', 'additionalProperties': False,
+                   'properties': {'text': {'type': 'string'}}, 'required': ['text']},
+}})

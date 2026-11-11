@@ -2,8 +2,8 @@
 
 This feature is experimental. Unit tests use fake guests and fake credentials.
 A separate [isolated browser check](browser-checks.md) tests rendered dummy pages in Chrome without a VM or model.
-The model and VM were not started for this implementation, at the user's request.
-Live startup, website compatibility, downloads, and login masking still need testing with dummy accounts.
+The user later authorised live tests. Online startup, dummy-account login, Keychain reuse, downloads, and an eight-action task passed.
+See [the validation report](live-validation-2026-11-11.md). Broader website and adversarial tests remain pending.
 
 ## Start an online session
 
@@ -14,13 +14,16 @@ Live startup, website compatibility, downloads, and login masking still need tes
 5. Approve navigation, or use the existing automatic approval setting.
 
 The checkbox applies to the new VM. Changing network mode requires stopping that VM and starting another.
+Project setup builds the missing pinned Cua gateway inside `.cache/cua-netgw` on Apple silicon Macs.
+It downloads a checksum-verified Go toolchain and checks the Cua source revision. No sudo or system-wide installation is required.
 Online startup installs pinned Playwright Python inside the guest. It uses the guest's existing Chromium browser.
 The guest needs Python venv support. A setup failure stops and removes the guest rather than using a host browser.
 
 [Cua's network option](https://cua.ai/docs/cua-sdk/reference/spaces) supplies outbound networking.
 This app requests `network='default'` only when the user enables web access.
 Browser requests check public HTTPS addresses and reject resolved private IP addresses.
-These checks are application filtering. They are not a VM firewall or a guarantee against DNS rebinding and private-network access.
+These browser checks supplement the Cua gateway. The inspected gateway rules block host and local-network destinations by default.
+A live probe to the project web server through the VM host alias was denied. This does not constitute a full network-security audit.
 No host folders or host input driver are connected.
 
 The expanded preview shows the browser viewport. Online mouse and keyboard actions target that viewport inside the guest.
@@ -72,9 +75,9 @@ Use dummy accounts until live masking tests pass. CAPTCHA, MFA, and multi-accoun
 
 ## Completion checks
 
-After an action sequence, a separate model request assesses the current screenshot against the complete original goal.
-Hidden, masked, missing, or uncertain results must not count as verified.
-An invalid assessment pauses the task. Three identical consecutive actions also pause it.
+After an action sequence, a separate model request assesses the screenshot, executed-step trail, and filesystem observations against the original goal.
+Missing or uncertain results must not count as verified. A website file link alone does not prove a download.
+An invalid assessment pauses the task. Repeated actions and action cycles pause when the screenshot also stops progressing.
 This reduces unsupported completion claims; a model assessment can still be wrong.
 
 ## Test without starting a VM or model
