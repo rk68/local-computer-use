@@ -296,7 +296,6 @@ dialog::backdrop { background: #000000a8; backdrop-filter: blur(6px); }
 .holo-avatar[data-mode='thinking'] .holo-eyes { animation: holo-look 2.4s ease-in-out infinite; }
 .holo-avatar[data-mode='executing'] .holo-halo { stroke-dasharray: 7 4; animation: holo-work .9s linear infinite; }
 .holo-avatar[data-mode='executing'] .holo-eyes { animation: holo-focus .9s ease-in-out infinite; }
-.holo-avatar[data-mode='replying'] .holo-smile { animation: holo-speak .8s ease-in-out infinite; transform-origin: 24px 32px; }
 .holo-avatar[data-mode='starting'] .holo-halo { animation: holo-float 1.8s ease-in-out infinite; }
 .chat-intro > .holo-avatar { width: 58px; height: 58px; border-radius: 18px; }
 .chat-intro > .holo-avatar svg { width: 47px; height: 47px; }
@@ -322,7 +321,6 @@ dialog::backdrop { background: #000000a8; backdrop-filter: blur(6px); }
 @keyframes holo-look { 0%, 100% { transform: translateX(-1.5px); } 50% { transform: translateX(1.5px); } }
 @keyframes holo-work { to { stroke-dashoffset: -22; } }
 @keyframes holo-focus { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.6); } }
-@keyframes holo-speak { 50% { transform: scaleY(1.8); } }
 @keyframes presence-shimmer { from { background-position: 150% 0; } to { background-position: -100% 0; } }
 @keyframes thought-wave { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-3px); opacity: 1; } }
 @keyframes action-wave { 0%, 100% { transform: scaleY(.4); opacity: .4; } 50% { transform: scaleY(1); opacity: 1; } }
@@ -602,19 +600,17 @@ footer { justify-content: flex-end; }
 }
 
 /* Small greetings stay on the avatar; active task animations keep their meaning. */
-.holo-avatar svg {
+.holo-character {
+  display: inline-flex;
   transform-origin: 50% 65%;
   transition: transform 260ms cubic-bezier(.2, .8, .2, 1);
 }
-.agent-nav:focus-visible .holo-avatar[data-mode='idle'] svg {
+.agent-nav:focus-visible .holo-avatar[data-mode='idle'] .holo-character {
   transform: translateY(-2px) rotate(-7deg);
 }
-.agent-nav:active .holo-avatar[data-mode='idle'] svg {
-  transform: translateY(1px) scale(.94);
-}
 @media (hover: hover) and (pointer: fine) {
-  .holo-avatar[data-mode='idle']:hover svg,
-  .agent-nav:hover .holo-avatar[data-mode='idle'] svg {
+  .holo-avatar[data-mode='idle']:hover .holo-character,
+  .agent-nav:hover .holo-avatar[data-mode='idle'] .holo-character {
     transform: translateY(-2px) rotate(-7deg) scale(1.05);
   }
   .holo-avatar[data-mode='idle']:hover .holo-halo,
@@ -627,6 +623,21 @@ footer { justify-content: flex-end; }
   }
   .welcome-card:not(:disabled):hover { transform: translateY(-2px); }
 }
+.holo-avatar[data-mode='idle']:active .holo-character,
+.agent-nav:active .holo-avatar[data-mode='idle'] .holo-character { transform: translateY(1px) scale(.94); }
+.holo-avatar[data-mode='thinking'] .holo-character { animation: halo-ponder 3.2s ease-in-out infinite; }
+.holo-avatar[data-mode='replying'] .holo-character { animation: halo-writing 1.6s ease-in-out infinite; }
+.holo-avatar[data-mode='waiting'] .holo-character { transform: rotate(-5deg); }
+.holo-avatar[data-mode='executing'] .holo-character { transform: translateY(1px) rotate(4deg); }
+@keyframes halo-ponder {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-2px) rotate(3deg); }
+}
+@keyframes halo-writing {
+  0%, 100% { transform: translateY(0); }
+  35% { transform: translateY(-1.5px) rotate(-2deg); }
+  65% { transform: translateY(0) rotate(2deg); }
+}
 .welcome-card { transition: background 150ms, border-color 150ms, transform 200ms ease; }
 .welcome-card:not(:disabled):active { transform: translateY(0) scale(.985); }
 @keyframes halo-greeting-ring {
@@ -638,5 +649,6 @@ footer { justify-content: flex-end; }
   45% { transform: scaleY(.15); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .holo-avatar svg, .welcome-card { transform: none !important; }
+  .holo-character, .welcome-card { transform: none !important; }
+  .holo-character { animation: none !important; transition: none !important; }
 }

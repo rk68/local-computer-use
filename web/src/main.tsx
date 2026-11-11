@@ -206,7 +206,7 @@ function Playground({ token, state: initialState, model: initialModel }: BootDat
                   {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
                 </div>
               </div>
-            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>A little less doing.<br />{' '}A little more done.</h3>
+            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>Put Halo to work.</h3>
               <p>An extra pair of hands for the tabs, clicks, and little tasks between you and your next idea.</p>
               <div className="welcome-cards">
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('What can you help me with?'); }}><span className="card-symbol" aria-hidden="true">↗</span><strong>Start a conversation</strong><span>Think something through together.</span></button>
