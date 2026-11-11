@@ -600,3 +600,43 @@ footer { justify-content: flex-end; }
   .brand { padding: 9px; }
   .brand-logo { width: 109px; height: 36px; }
 }
+
+/* Small greetings stay on the avatar; active task animations keep their meaning. */
+.holo-avatar svg {
+  transform-origin: 50% 65%;
+  transition: transform 260ms cubic-bezier(.2, .8, .2, 1);
+}
+.agent-nav:focus-visible .holo-avatar[data-mode='idle'] svg {
+  transform: translateY(-2px) rotate(-7deg);
+}
+.agent-nav:active .holo-avatar[data-mode='idle'] svg {
+  transform: translateY(1px) scale(.94);
+}
+@media (hover: hover) and (pointer: fine) {
+  .holo-avatar[data-mode='idle']:hover svg,
+  .agent-nav:hover .holo-avatar[data-mode='idle'] svg {
+    transform: translateY(-2px) rotate(-7deg) scale(1.05);
+  }
+  .holo-avatar[data-mode='idle']:hover .holo-halo,
+  .agent-nav:hover .holo-avatar[data-mode='idle'] .holo-halo {
+    animation: halo-greeting-ring 650ms ease-out 1;
+  }
+  .holo-avatar[data-mode='idle']:hover .holo-eyes,
+  .agent-nav:hover .holo-avatar[data-mode='idle'] .holo-eyes {
+    animation: halo-greeting-blink 650ms ease-in-out 1;
+  }
+  .welcome-card:not(:disabled):hover { transform: translateY(-2px); }
+}
+.welcome-card { transition: background 150ms, border-color 150ms, transform 200ms ease; }
+.welcome-card:not(:disabled):active { transform: translateY(0) scale(.985); }
+@keyframes halo-greeting-ring {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-3px); }
+}
+@keyframes halo-greeting-blink {
+  0%, 25%, 65%, 100% { transform: scaleY(1); }
+  45% { transform: scaleY(.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .holo-avatar svg, .welcome-card { transform: none !important; }
+}
