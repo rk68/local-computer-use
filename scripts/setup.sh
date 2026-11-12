@@ -21,4 +21,4 @@ hf download Hcompany/Holo4-35B-A3B-GGUF \
   q4_k_m.gguf mmproj.f16.gguf README.md LICENSE chat_template.jinja \
   --revision 93400a4 \
   --local-dir "$ROOT/models/holo4"
-echo 'Download complete. Run: bash scripts/serve.sh'
+echo 'Download complete. Start Halo with bash scripts/poc.sh, then choose Use model in the header.'

@@ -4,7 +4,7 @@ import { internalAction } from './_generated/server';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 
-export type Transcript = { role: 'user' | 'assistant' | 'system'; text: string }[];
+export type Transcript = { role: 'user' | 'assistant' | 'system'; text: string; attachment?: { id: string; caption: string; createdAt: number } }[];
 export async function bridge(threadId: Id<'threads'>, path: string, body?: object) {
   const response = await fetch('http://127.0.0.1:8765' + path, {
     method: body ? 'POST' : 'GET', signal: AbortSignal.timeout(60000),
@@ -22,9 +22,9 @@ export const start = internalAction({
     try {
       let state = await bridge(thread._id, '/api/state');
       if (run.command === '/api/chat') {
-        state = await bridge(thread._id, '/api/thread-context', { instructions: bot?.instructions ?? '', messages: history.slice(0, -1) });
+        state = await bridge(thread._id, '/api/thread-context', { instructions: 'Your chosen name is ' + JSON.stringify(bot?.name ?? 'Halo') + '.\n' + (bot?.instructions ?? '') + (bot?.memory ? '\nUser-saved memory for this bot:\n' + bot.memory : ''), messages: history.slice(0, -1) });
       }
-      const seen: Transcript = state.messages.map((m: Transcript[number]) => ({ role: m.role, text: m.text }));
+      const seen: Transcript = state.messages.map((m: Transcript[number]) => ({ role: m.role, text: m.text, ...(m.attachment ? { attachment: m.attachment } : {}) }));
       await bridge(thread._id, run.command!, JSON.parse(run.body ?? '{}'));
       await ctx.scheduler.runAfter(250, internal.executor.monitor, { runId, seen, attempts: 0 });
     } catch (error) {
@@ -33,14 +33,14 @@ export const start = internalAction({
   },
 });
 export const monitor = internalAction({
-  args: { runId: v.id('runs'), seen: v.array(v.object({ role: v.union(v.literal('user'), v.literal('assistant'), v.literal('system')), text: v.string() })), attempts: v.number() },
+  args: { runId: v.id('runs'), seen: v.array(v.object({ role: v.union(v.literal('user'), v.literal('assistant'), v.literal('system')), text: v.string(), attachment: v.optional(v.object({ id: v.string(), caption: v.string(), createdAt: v.number() })) })), attempts: v.number() },
   handler: async (ctx, { runId, seen, attempts }): Promise<void> => {
     const { run, thread } = await ctx.runQuery(internal.workspace.runContext, { runId });
     if (thread.activeRunId !== runId || run.status !== 'running') return;
     try {
       const state = await bridge(thread._id, '/api/state');
-      const current: Transcript = state.messages.map((m: Transcript[number]) => ({ role: m.role, text: m.text }));
-      await ctx.runMutation(internal.desktopHistory.append, { runId, previous: seen.map(m => ({ role: m.role, text: m.text })), current, sandbox: state.sandbox, phase: state.phase });
+      const current: Transcript = state.messages.map((m: Transcript[number]) => ({ role: m.role, text: m.text, ...(m.attachment ? { attachment: m.attachment } : {}) }));
+      await ctx.runMutation(internal.desktopHistory.append, { runId, previous: seen, current, sandbox: state.sandbox, phase: state.phase });
       if (!state.busy) {
         await ctx.runMutation(internal.workspace.finish, { runId, ...(state.error ? { error: state.error } : {}) });
       } else if (attempts >= 600) {

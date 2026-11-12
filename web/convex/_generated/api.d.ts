@@ -9,6 +9,7 @@
  */
 
 import type * as access from "../access.js";
+import type * as avatarOptions from "../avatarOptions.js";
 import type * as desktopHistory from "../desktopHistory.js";
 import type * as executor from "../executor.js";
 import type * as generation from "../generation.js";
@@ -23,6 +24,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  avatarOptions: typeof avatarOptions;
   desktopHistory: typeof desktopHistory;
   executor: typeof executor;
   generation: typeof generation;

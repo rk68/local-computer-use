@@ -8,6 +8,7 @@ __pycache__/
 .tools/
 data/
 web/node_modules/
+runtime/node_modules/
 web/dist/
 .env
 .env.*

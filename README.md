@@ -8,125 +8,196 @@ The server accepts text and screenshots through an OpenAI-compatible API.
 
 ## Current status
 
-The app now uses local Convex for bots, threads, persistent history, and text streaming.
-See [the backend architecture and setup](docs/convex-architecture.md).
-The prior live checks below covered the Python executor before this migration.
-The new integration is checked with a fake model and fake guests; a live Holo4 regression is still pending.
+Halo uses React and TypeScript, local Convex, and a TypeScript Cua executor.
+Convex stores bots, threads, messages, runs, and explicit saved memory.
+The app runtime does not require Python.
+The original Python code remains as a regression reference.
 
-The app passed a live Chrome test with Holo4 and the Cua Linux VM.
-The test verified text chat, screenshot questions, an approved click, and approved text entry.
-Offline practice remains the default. Online browser mode and private login are experimental additions.
-Live checks passed for online startup, private login, Keychain reuse, downloads, and an eight-action task.
-See [validation results](docs/live-validation-2026-11-11.md). See [online browser setup](docs/online-browser.md) and [isolated browser checks](docs/browser-checks.md).
+Read [the overnight briefing](docs/overnight-briefing-2026-11-12.md) for the latest results, decisions, and remaining limits.
+Read [the architecture](docs/convex-architecture.md) for the service boundaries.
 
-## Chat and sandbox POC
+## Start Halo
 
-Keep the Holo4 server running on port 8080.
-Use Node.js 22.12 or later for the web build.
-From this project directory, install the web and Cua dependencies:
+Use Node.js 22.13 or later on an Apple silicon Mac.
+Install the project dependencies once:
 
 ```sh
 bash scripts/poc.sh setup
 ```
 
-Then run the app:
+Start the workspace:
 
 ```sh
 bash scripts/poc.sh
 ```
 
-Open <http://127.0.0.1:8765> in your browser.
-Chat works without a sandbox. The app sends messages to your existing local Holo4 endpoint.
-Convex stores each thread's chat history. The default thread imports the previous SQLite transcript once.
-The original SQLite file remains unchanged as a recovery copy.
-Each bot has its own instructions. Each thread has its own sandbox, approvals, and desktop context.
-Create a bot with the sidebar **+**, then create threads with the **+** beside its name.
-Click a bot name to edit its instructions or archive it after stopping its sandboxes.
+Open <http://127.0.0.1:8765>.
+The launcher starts local Convex and the TypeScript executor.
+It keeps the model and sandboxes off until you request them.
+Startup reuses the web build when source files, dependencies, configuration, and output remain unchanged.
+Changes or missing assets trigger a rebuild automatically.
 
-The frontend uses React, TypeScript, Vite, and Zod.
-The TypeScript backend uses local Convex, Convex Agent, and Vercel AI SDK.
-Text replies stream through saved Convex deltas. Replies can continue while another thread is open.
-**Stop generating** cancels the active text request.
-The Python executor retains the tested Cua action loop and private credential handling.
-See [the domain boundaries and validation limits](docs/convex-architecture.md).
+Select the model control at the bottom of the sidebar.
+Choose **Use model** to load a downloaded model with llama.cpp and Metal.
+Use **Unload model** to release its memory.
+The app shares one model server across all bots.
+Model changes wait until active bot runs finish.
 
-To try computer use:
+The catalog includes these models and their matching vision projectors:
 
-1. Open the desktop drawer using the right-hand control. Click **Start sandbox**. The first run downloads the Linux image and can take several minutes.
-2. Wait for the guest screenshot. The app selects desktop mode when the sandbox starts.
-3. Click **Try it** to prepare the practice task.
-4. Send the message.
-5. Inspect the proposed action and click **Approve one action** or **Reject**.
-6. Inspect each new screenshot. Halo continues the same task and proposes the next action.
-7. Click **Stop & remove sandbox** after the experiment.
+| Model | Download size | GGUF source |
+|---|---:|---|
+| Holo4 35B A3B | 22.2 GB | H Company |
+| Holo4 27B | 17.8 GB | H Company |
+| Holo 3.1 0.8B | 0.88 GB | mradermacher |
+| Holo 3.1 4B | 3.74 GB | prithivMLmods |
+| Holo 3.1 9B | 6.55 GB | prithivMLmods |
 
-The app creates a local QEMU VM with 4 virtual CPUs, 2 GiB RAM, and a 30 GB virtual disk.
-The app sets Cua's host memory reserve to 4 GiB unless you supply `CUA_VM_MIN_AVAILABLE_MB`.
-The guest network is disabled by default. Select **Enable web access** before starting a new VM for online browser mode.
-The app does not mount host folders or connect to an existing desktop.
-It does not install a host input driver, register the Mac for remote access, or call a cloud model.
-The model can propose clicks, text entry, field replacement, selected keys, and scrolling.
-An approved field replacement selects the current value and types the new value.
-A fixed setup command opens the practice form inside the guest.
-Offline prompts restrict work to the form. Online mode uses browser controls inside the same VM boundary.
+Download sizes include the vision projector. Running a model needs additional memory.
+The Holo 3.1 entries use community Q4_K_M conversions with F16 projectors.
+They remain marked experimental for desktop workflows.
+Their original H Company models and selected conversions use Apache 2.0.
+The 35B model uses Apache 2.0.
+The 27B model uses CC BY-NC 4.0 and permits non-commercial use.
+Each model needs its matching vision projector.
+The app downloads pinned files into `models/` and checks their SHA-256 hashes.
+The downloaded 35B model remains the default.
 
-By default, each action needs approval and expires after two minutes.
-Select **Approve all actions for me** to execute validated actions automatically in the current sandbox.
-You can enable it while an action awaits approval. Clear the checkbox to pause before the next action.
-Halo inspects a fresh screenshot after each action and continues through the parts of your request.
-For example: “Change the name to Alice and set the short note to Hello from Halo.”
-Each sandbox permits 20 action attempts, including automatically approved actions.
-Automatic approval resets when you stop the sandbox.
-A separate assessment checks the screenshot, executed steps, and sandbox state. Repeated actions pause when the screen stops progressing.
-Stop discards pending proposals and removes the guest. An input event already sent cannot be undone.
-Ctrl+C also attempts guest cleanup. Closing the browser tab does not stop the server.
+If a model already runs from a terminal, Halo uses its local endpoint.
+Stop that process in its terminal before switching to app-managed model startup.
+The model manager never terminates an unrelated process.
+Install llama.cpp with `brew install llama.cpp` if its executable is absent.
+The earlier download and model-server scripts below remain available for diagnostics.
 
-After an interrupted server process, remove the recorded POC guest with:
+## Mac app
+
+Build the native Mac wrapper:
+
+```sh
+bash scripts/build-macos.sh
+open artifacts/Halo.app
+```
+
+The app uses the same React interface in a native WebKit window.
+It connects to an existing local Halo workspace or starts the launcher itself.
+Quitting stops only services that this app instance starts.
+The local build requires this project, its dependencies, and the installed Node.js executable.
+If you move the project or change Node.js, rebuild the app.
+This is an ad hoc signed local build, not a notarized distribution.
+
+## Bots, threads, and memory
+
+Use the sidebar **+** to create a bot.
+Give it a name, then choose an avatar colour and style from the live preview.
+Use the **+** beside a bot to create a thread.
+Each thread has separate history, sandbox ownership, approvals, and action counts.
+Creating a bot or thread does not start a VM.
+Replies appear in full when ready. Switching threads or reloading does not cancel generation.
+While waiting, the app shows an animated avatar, three dots, and a status label in the bot’s colour.
+
+Select a bot name to edit its name, avatar, instructions, and saved memory.
+Saved memory applies only to that bot's threads.
+Halo does not extract memories from conversations automatically.
+Keep passwords in private login, not in memory or instructions.
+
+Use a thread's edit control to rename or archive it.
+Use **Archived** to restore threads and bots.
+Stop active runs and sandboxes before archiving their conversations.
+The app keeps at least one active bot and one active thread per bot.
+The default thread imports the old SQLite transcript once.
+The import leaves the original database unchanged.
+
+## Sandbox desktop
+
+Open the desktop drawer with the right-hand control.
+Select **Start sandbox** to create a disposable local QEMU Linux VM.
+The VM uses four virtual CPUs, 2 GiB RAM, and a 30 GiB disk.
+It does not mount host folders or control the Mac desktop.
+The default VM has no outbound network access.
+Select **Enable web access** before starting a new VM for online browsing.
+Downloads remain inside the VM.
+
+Select **Try it** for the practice form.
+Desktop mode supplies a fresh screenshot with each model step.
+Each action requires approval unless you enable automatic approval for that sandbox.
+An approval expires after two minutes and can run only once.
+Use the camera button in the desktop header to share a screenshot in chat.
+Halo can also capture a screenshot during a desktop task.
+Expand the attachment or select **Save PNG** to export it.
+Captures remain available after the sandbox stops and the app restarts.
+Files stay in `data/screenshots/<thread-id>/` with a limit of 50 captures per thread.
+Clearing chat hides old attachments but does not delete their local files.
+
+Action updates appear in an expandable activity trail.
+Live status distinguishes planning, execution, approval, and completion checks.
+Public search fields remain visible until private values enter the session.
+Private login and code fields remain masked.
+
+The sandbox permits 20 action attempts.
+A separate assessment checks completion before Halo reports success.
+A failed assessment permits at most two further attempts to finish missing work.
+An uncertain action RPC is never retried automatically.
+
+Select **Stop & remove sandbox** to delete the current thread's guest.
+After an interrupted process, recover recorded guests with:
 
 ```sh
 bash scripts/poc.sh cleanup
 ```
 
-Cleanup targets only guests recorded in `.cache/cua-poc/owned-sandbox.json` and the per-thread ownership files.
-It retains downloaded image caches. It does not delete other VMs or change your Holo4 model files.
-If cleanup fails, the app retains its ownership record for another attempt.
+Cleanup targets only Halo ownership records under `.cache/cua-poc/`.
+It retains downloaded image caches and unrelated VMs.
 
-The Python environment is `.venv/`. Cua state uses `.cache/cua-poc/`.
-The app disables Cua telemetry through environment variables and the sandbox creation argument.
-The web executor binds to `127.0.0.1:8765` and blocks cross-origin API requests.
-The launcher also binds Convex ports 3210 and 3211 to loopback.
-The UI loads no external scripts, fonts, or analytics.
+## Private login
 
-If the SDK reports a missing runtime, inspect the local runtime setup from this project directory:
+Ask explicitly to sign in before Halo requests a private login form.
+The app fills credentials only on the approved HTTPS origin.
+Optional named accounts use macOS Keychain, including the original default account.
+Select the saved account to reuse or delete.
+Verification codes use a separate private form and never enter Keychain or chat.
 
-```sh
-CUA_HOME="$PWD/.cache/cua-poc" CUA_TELEMETRY=0 .venv/bin/cua runtime doctor
-CUA_HOME="$PWD/.cache/cua-poc" CUA_TELEMETRY=0 .venv/bin/cua runtime setup --dry-run
-```
+The JavaScript guest browser masks editable fields, known secrets, and media after credential use.
+Closed shadow content blocks private capture.
+Passwords and codes do not enter Convex, model requests, or command arguments.
+CAPTCHA, push approval, and hardware security keys require a human.
+Masking and public-URL filtering do not establish protection against every hostile page or private-network request.
+Use demo accounts until you review the live results in the briefing.
 
-The app fails if QEMU or network isolation is unavailable. It does not select a weaker runtime automatically.
-Full integration requires the Cua package, a compatible Linux image, and a working local runtime.
-The QEMU runtime requires `qemu-system-aarch64` and `qemu-img` on the app process PATH.
-If QEMU is absent, run `brew install qemu` in your Mac Terminal.
-Then restart the app so it loads the current code and environment.
-The pinned Cua packages use a project-local compatibility adapter for the renamed account configuration argument.
-The adapter keeps account access disabled and does not edit installed packages.
-Application events and error tracebacks go to `logs/poc.log`, with bounded rotation.
-The app does not log chat text or screenshots.
-The image resolves its architecture and digest at creation. The POC does not pin an image digest yet.
-Holo4 tool calling and coordinate accuracy also need a live trial.
+## Local boundaries and checks
 
-Run the boundary and lifecycle tests with:
+The executor binds to `127.0.0.1:8765`.
+Convex binds to loopback ports 3210 and 3211.
+Host, origin, and session-token checks protect local API requests.
+The UI uses local fonts and assets.
+The launcher keeps existing Convex data across restarts.
+
+Run the runtime tests and TypeScript checks:
 
 ```sh
-python3 -m unittest discover -s tests -v
+npm test --prefix runtime
+npm run check --prefix runtime
+npm run build --prefix web
+web/node_modules/.bin/tsc --noEmit -p web/convex/tsconfig.json
 ```
 
-These tests use fake guests. They do not establish successful VM boot or browser operation.
+With local Halo running, run the isolated browser checks:
+
+```sh
+(cd runtime && node test/check-ui.mjs)
+(cd runtime && node test/check-browser.mjs)
+```
+
+The browser checks use a fresh Chrome profile and dummy credentials.
+The UI check creates and archives a temporary QA bot.
+The old Python suite remains available as a regression reference:
+
+```sh
+.venv/bin/python -m unittest discover -s tests -q
+```
 
 ## Install and run
 
-Requirements: an Apple Silicon Mac, Homebrew, Python 3, and the Hugging Face CLI (`hf`).
+This optional diagnostic setup uses an Apple silicon Mac, Homebrew, and the Hugging Face CLI (`hf`).
 The download uses approximately 22.2 GB of disk space.
 Model execution also needs memory for the context, image processing, and application buffers.
 
@@ -196,14 +267,10 @@ If a response reaches the token limit, repeat the test with `--max-tokens 2048`.
 If memory pressure occurs, close other large applications before another attempt.
 Actual speed and available memory require measurement on this Mac.
 
-## Next steps
+## Remaining work
 
-- Install llama.cpp and download both files.
-- Establish Metal offload and text inference.
-- Establish image input and inspect screenshot accuracy.
-- Connect Holo Desktop CLI to the local endpoint.
-- Add the computer-control loop.
-- Experiment with multiple agents that share the server.
+The current checklist is [TODO.md](TODO.md).
+The morning briefing records completed work and the limits of each test.
 
 ## Sources
 

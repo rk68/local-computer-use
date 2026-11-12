@@ -8,8 +8,11 @@ export const send = mutation({
   args: { token: v.string(), threadId: v.id('threads'), text: v.string(), desktop: v.boolean() },
   handler: async (ctx, args) => {
     authorize(args.token);
+    if ((await ctx.db.query('runtimeControls').first())?.changing) throw new ConvexError('Wait for the local model to finish loading or unloading.');
     const thread = await ctx.db.get(args.threadId);
     if (!thread) throw new ConvexError('Thread no longer exists.');
+    const bot = await ctx.db.get(thread.botId);
+    if (thread.archived || bot?.archived) throw new ConvexError('Restore this conversation before sending a message.');
     if (thread.activeRunId) throw new ConvexError('This thread is already working.');
     const text = requiredText(args.text, 'Message', 4000);
     const { messageId } = await saveMessage(ctx, components.agent, { threadId: thread.agentThreadId, prompt: text });
@@ -22,12 +25,14 @@ export const send = mutation({
   },
 });
 export const command = mutation({
-  args: { token: v.string(), threadId: v.id('threads'), path: v.union(v.literal('/api/start'), v.literal('/api/stop'), v.literal('/api/refresh'), v.literal('/api/approve'), v.literal('/api/reject'), v.literal('/api/approval-mode'), v.literal('/api/cancel-login')),
+  args: { token: v.string(), threadId: v.id('threads'), path: v.union(v.literal('/api/share-screenshot'), v.literal('/api/start'), v.literal('/api/stop'), v.literal('/api/refresh'), v.literal('/api/approve'), v.literal('/api/reject'), v.literal('/api/approval-mode'), v.literal('/api/cancel-login')),
     body: v.object({ id: v.optional(v.string()), network: v.optional(v.boolean()), enabled: v.optional(v.boolean()) }) },
   handler: async (ctx, args) => {
     authorize(args.token);
     const thread = await ctx.db.get(args.threadId);
     if (!thread) throw new ConvexError('Thread no longer exists.');
+    const bot = await ctx.db.get(thread.botId);
+    if ((thread.archived || bot?.archived) && args.path !== '/api/stop') throw new ConvexError('Restore this conversation before starting work.');
     if (thread.activeRunId && args.path !== '/api/stop') throw new ConvexError('This thread is already working.');
     if (thread.activeRunId) {
       const previous = await ctx.db.get(thread.activeRunId);

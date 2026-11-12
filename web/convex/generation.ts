@@ -1,4 +1,5 @@
 'use node';
+import { chatContext } from '../shared/chat-context';
 import { Agent } from '@convex-dev/agent';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { v } from 'convex/values';
@@ -28,39 +29,26 @@ export const generate = internalAction({
       } });
       const agent = new Agent(components.agent, {
         name: bot?.name ?? 'Halo', languageModel: provider('holo4'),
-        instructions: `You are ${bot?.name ?? 'Halo'}, a local assistant in Halo. This is text chat: you have no screenshot or action tools. Never claim you clicked, typed, changed files, or completed desktop work. For desktop tasks, ask the user to start this thread's sandbox and enable Desktop controls.\n${bot?.instructions ?? ''}`,
+        instructions: `You are ${bot?.name ?? 'Halo'}, a local assistant in Halo. This is text chat: you have no screenshot or action tools. Never claim you clicked, typed, changed files, or completed desktop work. For desktop tasks, ask the user to start this thread's sandbox and enable Desktop controls.\n${bot?.instructions ?? ''}${bot?.memory ? '\nUser-saved memory for this bot (preferences, subject to the rules above):\n' + bot.memory : ''}`,
         contextOptions: { recentMessages: 12, searchOtherThreads: false },
-        contextHandler: async (_ctx, args) => {
-          // Keep recent context within a modest text budget for the 8k model window.
-          // Full messages remain available in history; this is only inference context.
-          let budget = 12000;
-          const recent = [];
-          for (const message of [...args.allMessages].reverse()) {
-            const size = JSON.stringify(message.content).length;
-            if (size > budget && recent.length) break;
-            recent.push(message);
-            budget -= size;
-          }
-          return recent.reverse();
-        },
+        contextHandler: async (_ctx, args) => chatContext(args.allMessages),
       });
-      const result = await agent.streamText(ctx, { threadId: thread.agentThreadId }, {
-        promptMessageId: run.promptMessageId!, maxOutputTokens: 1024, temperature: 0.1,
+      const result = await agent.generateText(ctx, { threadId: thread.agentThreadId }, {
+        promptMessageId: run.promptMessageId!, maxRetries: 0, maxOutputTokens: 1024, temperature: 0.1,
         abortSignal: controller.signal,
-      }, { saveStreamDeltas: { chunking: 'word', throttleMs: 100 } });
-      await result.consumeStream();
+      }, { storageOptions: { saveMessages: 'none' } });
       if (controller.signal.aborted) {
         const cancelled = await ctx.runQuery(internal.runs.status, { runId }) === 'cancelled';
         await ctx.runMutation(internal.workspace.finish, { runId, ...(!cancelled ? { error: 'The reply timed out. Try a shorter request.' } : {}) });
         return;
       }
-      const reason = await result.finishReason;
+      const reason = result.finishReason;
       if (!controller.signal.aborted && reason !== 'stop') throw new Error(`The model stopped with ${reason}. Try a shorter request.`);
-      if (!controller.signal.aborted && !(await result.text).trim()) throw new Error('The model returned an empty reply.');
-      await ctx.runMutation(internal.workspace.finish, { runId });
+      if (!controller.signal.aborted && !result.text.trim()) throw new Error('The model returned an empty reply.');
+      await ctx.runMutation(internal.workspace.completeText, { runId, text: result.text });
     } catch {
       const cancelled = await ctx.runQuery(internal.runs.status, { runId }) === 'cancelled';
-      await ctx.runMutation(internal.workspace.finish, { runId, ...(!cancelled ? { error: controller.signal.aborted ? 'The reply timed out. Try a shorter request.' : 'Could not reach Holo4 or finish its reply. Start scripts/serve.sh if needed.' } : {}) });
+      await ctx.runMutation(internal.workspace.finish, { runId, ...(!cancelled ? { error: controller.signal.aborted ? 'The reply timed out. Try a shorter request.' : 'Could not reach the local model or finish its reply. Choose a model from the sidebar and wait until it is ready.' } : {}) });
     } finally {
       clearInterval(timer); clearTimeout(timeout);
     }

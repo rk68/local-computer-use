@@ -25,7 +25,7 @@ export const sandboxState = z.object({
   approve_all: z.boolean(),
   network: z.boolean(),
   browser_origin: z.string().nullable(),
-  credential_request: z.object({ id: z.string(), origin: z.string(), reason: z.string() }).nullable(),
+  credential_request: z.object({ id: z.string(), origin: z.string(), reason: z.string(), kind: z.enum(['password', 'code']).optional() }).nullable(),
   task: z.object({ goal: z.string(), steps: z.number().int().nonnegative() }).nullable(),
 });
 

@@ -4,7 +4,7 @@ export type AgentMode = 'idle' | 'thinking' | 'executing' | 'replying' | 'waitin
 
 export function agentMode(state: PlaygroundState, status: string, desktop: boolean): AgentMode {
   if (state.error) return 'idle';
-  if (state.phase === 'stopping') return 'stopping';
+  if (['stopping', 'stopping reply'].includes(state.phase)) return 'stopping';
   if (state.busy) {
     if (state.phase === 'executing approved action' || state.phase === 'filling private login') return 'executing';
     if (['starting VM', 'preparing practice form', 'preparing web browser'].includes(state.phase)) return 'starting';

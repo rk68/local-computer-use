@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const desktopCommandPath = z.enum(['/api/start', '/api/stop', '/api/refresh', '/api/approve', '/api/reject', '/api/approval-mode', '/api/cancel-login']);
+export const desktopCommandPath = z.enum(['/api/share-screenshot', '/api/start', '/api/stop', '/api/refresh', '/api/approve', '/api/reject', '/api/approval-mode', '/api/cancel-login']);
 export const desktopCommandBody = z.object({ id: z.string().optional(), network: z.boolean().optional(), enabled: z.boolean().optional() }).strict();
 
 const apiError = z.object({ error: z.string() });

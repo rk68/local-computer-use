@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ConversationHistory } from './conversation/ConversationHistory';
 import { useThreadChat } from './conversation/use-thread-chat';
-import { ConvexProvider, ConvexReactClient, useMutation } from 'convex/react';
+import { ConvexProvider, ConvexReactClient, useMutation, useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { Workspace } from './Workspace';
 import { BotThreads, type Navigation } from './components/BotThreads';
@@ -16,6 +17,8 @@ import { Notice } from './components/Notice';
 import { HoloAvatar } from './agent/HoloAvatar';
 import { AgentPresence } from './agent/AgentPresence';
 import { agentMode } from './agent/presence';
+import { Icon } from './components/Icon';
+import { ModelPicker } from './components/ModelPicker';
 import './web.css';
 
 type ModelStatus = 'checking' | 'connected' | 'offline';
@@ -58,6 +61,7 @@ function ThreadSession({ boot, navigation }: { boot: BootData; navigation: Navig
 function Playground({ token, state: initialState, model: initialModel, navigation }: BootData & { navigation: Navigation }) {
   const { thread, bot } = navigation;
   const threadId = thread._id;
+  const screenshots = useQuery(api.workspace.screenshots, { token, threadId });
   const desktopCommand = useMutation(api.runs.command);
   const clearHistory = useMutation(api.workspace.clear);
   const [state, setState] = useState(initialState);
@@ -110,7 +114,8 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
   const busy = commandBusy || state.busy || state.phase === 'stopping'
     || generating || !!thread.activeRunId;
   const pending = state.pending;
-  const presence = agentMode({ ...state, busy, phase: state.busy ? state.phase : thread.run?.command === '/api/start' ? 'starting VM' : thread.run?.kind === 'desktop' ? 'thinking' : state.phase }, chat.status, desktop);
+  const presencePhase = state.busy ? state.phase : thread.run?.kind === 'text' ? thread.run.status === 'cancelled' ? 'stopping reply' : thread.run.status === 'queued' ? 'preparing reply' : 'generating text' : thread.run?.command === '/api/start' ? 'starting VM' : thread.run?.kind === 'desktop' ? 'thinking' : state.phase;
+  const presence = agentMode({ ...state, busy, phase: presencePhase }, chat.status, desktop);
   const visibleError = error || connectionError || state.error || chat.error?.message;
 
   useEffect(() => {
@@ -153,23 +158,10 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
     }
   }
 
-  async function checkModel() {
-    setModel('checking');
-    setDismissedError(null);
-    try {
-      const result = await localRequest('/api/model', modelResponse, token);
-      setModel(result.ok ? 'connected' : 'offline');
-      setError(result.error ?? '');
-    } catch (failure) {
-      setModel('offline');
-      setError((failure as Error).message);
-    }
-  }
-
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || busy || pending || state.credential_request) return;
+    if (!text || busy || pending || state.credential_request || model !== 'connected') return;
     setDraft('');
     setError('');
     setDismissedError(null);
@@ -198,18 +190,14 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
         <img className="brand-logo brand-logo-light" src="/brand/halo-lockup-black.svg" width="121" height="40" alt="halo" />
       </a>
       <BotThreads token={token} {...navigation} />
-      <div className="local-note"><span className="dot" /> Inference on your Mac</div>
+      <div className="sidebar-footer" aria-label="App controls"><ModelPicker token={token} busy={busy} onReady={ready => setModel(ready ? 'connected' : 'offline')} /><ThemeToggle /></div>
     </aside>
     <main>
-      <header><div className="breadcrumb"><span className="breadcrumb-bot">{bot.name}</span><span>/</span>{thread.title}</div><div className="header-actions"><div className="model-pill"><span className={`dot ${model === 'connected' ? 'on' : model === 'offline' ? 'off' : ''}`} />
-          <span id="model-status">{model === 'checking' ? 'Checking Holo4…' : model === 'connected' ? 'Holo4 connected' : 'Holo4 offline'}</span>
-          <button id="model-check" className="icon-button" aria-label="Check model connection" onClick={() => void checkModel()}>↻</button>
-        </div><ThemeToggle /></div></header>
       {visibleError && visibleError !== dismissedError ? <Notice message={visibleError} onDismiss={() => setDismissedError(visibleError)} /> : null}
       <div className="panels" data-desktop-visible={showDesktop}>
         <Desktop token={token} threadId={threadId} visible={showDesktop} onClose={() => setShowDesktop(false)} state={state} busy={busy} command={command} tryMission={() => { setDesktop(true); fillDraft(state.network ? 'Open https://example.com' : 'Change the name to Alex'); }} />
         <section className="chat-panel panel" aria-label="Chat">
-          <div className="panel-heading"><div><HoloAvatar mode={presence} small /><h2>Chat with {bot.name}</h2></div>
+          <div className="panel-heading"><div><HoloAvatar mode={presence} small appearance={bot.avatar} /><h2>Chat with {bot.name}</h2></div>
             <div className="chat-heading-actions">
               <button id="clear-chat" className="icon-button" title="Clear chat" aria-label="Clear chat" disabled={busy || pending !== null || state.credential_request !== null || !chat.messages.length} onClick={() => void clearChat()}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -221,15 +209,7 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
           </div>
           <div className="messages" id="messages" role="log" aria-live="polite" ref={messageList}>
             {chat.hasMore ? <button className="history-more secondary" disabled={chat.loadingHistory} onClick={chat.loadMore}>{chat.loadingHistory ? 'Loading…' : 'Earlier messages'}</button> : null}
-            {chat.messages.length ? chat.messages.map(message => (
-              <div className={`message-row ${message.role}`} key={message.id}>
-                {message.role === 'assistant' ? <HoloAvatar /> : null}
-                <div className={`message ${message.role}`}>
-                  <div className="message-label">{message.role === 'assistant' ? bot.name : message.role === 'user' ? 'You' : 'Playground'}</div>
-                  {message.parts.map((part, index) => part.type === 'text' ? <p key={index}>{part.text}</p> : null)}
-                </div>
-              </div>
-            )) : <div className="chat-intro"><div className="welcome-character"><HoloAvatar /></div><span className="welcome-eyebrow">MEET HALO</span><h3>Put {bot.name} to work.</h3>
+            {chat.messages.length ? <ConversationHistory messages={chat.messages} images={screenshots ?? []} token={token} threadId={threadId} botName={bot.name} avatar={bot.avatar} /> : <div className="chat-intro"><div className="welcome-character"><HoloAvatar appearance={bot.avatar} /></div><span className="welcome-eyebrow">MEET {bot.name.toUpperCase()}</span><h3>Put {bot.name} to work.</h3>
               <p>An extra pair of hands for the tabs, clicks, and little tasks between you and your next idea.</p>
               <div className="welcome-cards">
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('What can you help me with?'); }}><span className="card-symbol" aria-hidden="true">↗</span><strong>Start a conversation</strong><span>Think something through together.</span></button>
@@ -237,9 +217,9 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
                 <button className="welcome-card" onClick={() => { setDesktop(false); fillDraft('Explain how this local playground works.'); }}><span className="card-symbol" aria-hidden="true">⌘</span><strong>Get your bearings</strong><span>A quick tour of your workspace.</span></button>
               </div>
             </div>}
-            <AgentPresence mode={presence} desktop={desktop} />
+            <AgentPresence avatar={bot.avatar} mode={presence} desktop={desktop} phase={presencePhase} latestAction={[...state.events].reverse().find(event => event.text.startsWith("Proposed "))?.text} />
           </div>
-          {state.credential_request ? <PrivateLogin key={state.credential_request.id} request={state.credential_request} busy={busy} command={command} /> : null}
+          {state.credential_request ? <PrivateLogin key={state.credential_request.id} token={token} threadId={threadId} request={state.credential_request} busy={busy} command={command} /> : null}
           {pending ? <div id="proposal" className="proposal">
             <div className="proposal-label">YOUR APPROVAL NEEDED</div><p>{pending.action.reason}</p><pre>{actionDescription(pending.action)}</pre>
             <div className="approval-buttons">
@@ -248,7 +228,7 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
             </div><small>Expires after 2 minutes.</small>
           </div> : null}
           <div className="composer-area">
-            <details className="chat-settings"><summary><span>⚙ &nbsp; Desktop controls</span><span>{desktop ? state.approve_all ? 'Auto approval' : 'Manual approval' : 'Text only'} ⌃</span></summary><div className="settings-popover">
+            <details className="chat-settings"><summary><span><Icon name="settings" /> Desktop controls</span><span>{desktop ? state.approve_all ? 'Auto approval' : 'Manual approval' : 'Text only'} <Icon name="chevron" /></span></summary><div className="settings-popover">
             <label className="mode"><input type="checkbox" id="desktop-mode" checked={desktop} disabled={busy || !state.sandbox} onChange={event => setDesktop(event.target.checked)} /><span>Include sandbox screenshot &amp; propose actions</span></label>
             <label className="mode"><input type="checkbox" id="approve-all" checked={state.approve_all} disabled={commandBusy || !state.sandbox || state.phase === 'stopping'} onChange={event => {
               const enabled = event.target.checked;
@@ -257,8 +237,8 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
             }} /><span>Approve all actions for me <small>· this sandbox session</small></span></label>
             </div></details>
             <form id="chat-form" onSubmit={event => void send(event)}>
-              <label className="sr-only" htmlFor="message">Message Halo</label>
-              <textarea ref={input} id="message" rows={1} maxLength={4000} value={draft} disabled={pending !== null || state.credential_request !== null} onChange={event => setDraft(event.target.value)} placeholder="Ask Halo a question, or give it a task…" onKeyDown={event => {
+              <label className="sr-only" htmlFor="message">Message {bot.name}</label>
+              <textarea ref={input} id="message" rows={1} maxLength={4000} value={draft} disabled={pending !== null || state.credential_request !== null} onChange={event => setDraft(event.target.value)} placeholder={`Ask ${bot.name} a question, or give it a task…`} onKeyDown={event => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
                   event.currentTarget.form?.requestSubmit();
@@ -269,7 +249,7 @@ function Playground({ token, state: initialState, model: initialModel, navigatio
                   void chat.stopGeneration().catch(failure => setError((failure as Error).message));
                 }}>■</button>
               ) : (
-                <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || state.credential_request !== null || !draft.trim()}>↑</button>
+                <button id="send" className="send" type="submit" aria-label="Send message" disabled={busy || pending !== null || state.credential_request !== null || !draft.trim() || model !== 'connected'}>↑</button>
               )}
             </form>
           </div>

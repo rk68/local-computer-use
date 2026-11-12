@@ -41,6 +41,15 @@ class Model(BaseHTTPRequestHandler):
         else:
             answer = 'A fixture reply for this thread. '
         slow = any('slow' in json.dumps(m).lower() for m in messages if m['role'] == 'user')
+        if not body.get('stream', False):
+            time.sleep(8 if slow else .25)
+            payload = {'id': 'fixture', 'object': 'chat.completion', 'created': 1, 'model': 'holo4', 'choices': [{'index': 0, 'finish_reason': 'stop', 'message': {'role': 'assistant', 'content': answer * (40 if slow else 1)}}], 'usage': {'prompt_tokens': 10, 'completion_tokens': 10, 'total_tokens': 20}}
+            data = json.dumps(payload).encode()
+            try:
+                self.send_response(200); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
         words = (answer * (40 if slow else 1)).split(' ')
         self.send_response(200); self.send_header('Content-Type', 'text/event-stream'); self.end_headers()
         try:
@@ -72,6 +81,12 @@ def main():
             browser = p.chromium.launch(executable_path='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless=True)
             try:
                 page = browser.new_page(viewport={'width': 1366, 'height': 768})
+                # This UI check uses the fake inference endpoint configured below.
+                # Advertise only that fixture as ready; never start real weights.
+                page.route('**/api/models', lambda route: route.fulfill(content_type='application/json', body=json.dumps({
+                    'selected_id': 'fixture', 'phase': 'ready', 'ready': True, 'managed': False, 'error': None, 'progress': None,
+                    'models': [{'id': 'fixture', 'name': 'Fixture model', 'detail': 'No real weights', 'license': 'Test only', 'installed': True, 'source': 'https://example.test'}],
+                })))
                 errors = []
                 page.on('pageerror', lambda error: errors.append(str(error)))
                 page.goto('http://127.0.0.1:8765')
@@ -90,15 +105,15 @@ def main():
                 page.reload()
                 expect(page.locator('.message.assistant').last).to_contain_text('ORCHID')
                 page.get_by_role('button', name='New thread for ' + name, exact=True).click()
-                page.get_by_label('Thread title').fill('Separate task')
+                page.get_by_role('dialog').get_by_label('Thread title').fill('Separate task')
                 page.get_by_role('button', name='Create thread', exact=True).click()
-                expect(page.locator('.breadcrumb')).to_contain_text('Separate task')
+                expect(page.get_by_role('button', name='Separate task', exact=True)).to_have_attribute('aria-current', 'page')
                 expect(page.locator('#messages')).not_to_contain_text('ORCHID')
                 page.locator('#message').fill('What is the codename?')
                 page.locator('#send').click()
                 expect(page.locator('.message.assistant').last).to_contain_text('No codename set.')
                 page.get_by_role('button', name='Stop generating').wait_for(state='hidden')
-                page.get_by_role('button', name='New conversation', exact=True).click()
+                page.locator('.bot-group').filter(has_text=name).get_by_role('button', name='New conversation', exact=True).click()
                 expect(page.locator('#messages')).to_contain_text('ORCHID')
                 page.locator('#message').fill('Give a slow reply.')
                 page.locator('#send').click()
@@ -108,7 +123,7 @@ def main():
                 expect(page.locator('.message.assistant').last).to_contain_text('ORCHID')
                 page.get_by_role('button', name='Separate task', exact=True).click()
                 expect(page.locator('#messages')).not_to_contain_text('ORCHID')
-                page.get_by_role('button', name='New conversation', exact=True).click()
+                page.locator('.bot-group').filter(has_text=name).get_by_role('button', name='New conversation', exact=True).click()
                 page.get_by_role('button', name='Stop generating').click(timeout=10000)
                 page.get_by_role('button', name='Stop generating').wait_for(state='hidden')
                 for width, height in [(1280, 720), (1366, 768), (1440, 900), (390, 844)]:
@@ -116,7 +131,7 @@ def main():
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight'), (width, height)
                 page.get_by_role('button', name='Switch bot or thread').click()
                 page.get_by_role('button', name='Separate task', exact=True).click()
-                expect(page.locator('.breadcrumb')).to_contain_text('Separate task')
+                expect(page.get_by_role('button', name='Separate task', exact=True)).to_have_attribute('aria-current', 'page')
                 page.get_by_role('button', name='Show virtual desktop', exact=True).click()
                 page.get_by_role('button', name='Close virtual desktop').click()
                 page.set_viewport_size({'width': 1366, 'height': 768})
@@ -134,7 +149,7 @@ def main():
                     assert not json.load(urlopen(request))['sandbox']
                 assert any('Keep replies concise.' in json.dumps(request['messages']) for request in REQUESTS)
                 assert all(request.get('chat_template_kwargs', {}).get('enable_thinking') is False for request in REQUESTS)
-                print('PASS: real Convex bot/thread creation, durable history, isolated model context, streaming across reload/switch, cancellation, auth, mobile drawer, and no VM startup.')
+                print('PASS: real Convex bot/thread creation, durable history, isolated model context, complete replies across reload/switch, cancellation, auth, mobile drawer, and no VM startup.')
             finally:
                 browser.close()
         # Use the same AI SDK provider for a screenshot + typed tool call, with no executor.
