@@ -29,7 +29,7 @@ export function AgentPresence({ mode, desktop, phase, latestAction, avatar }: { 
     : 'Finishing up and removing the guest';
   return <div className="agent-presence" style={accent} data-colour={(avatar ?? defaultAvatar).colour} data-mode={mode} data-phase={phase} role="status" aria-live="polite">
     <HoloAvatar mode={mode} appearance={avatar} />
-    <div className="presence-copy"><div className="presence-title"><span className="presence-label">{title}</span>
+    <div className="presence-copy"><div className="presence-title"><span className={`presence-label${working ? ' flowing-text' : ''}`}>{title}</span>
       {working ? <span className="thought-dots" aria-hidden="true"><i /><i /><i /></span> : null}
       <span className="presence-elapsed" aria-hidden="true">{elapsed > 0 ? elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` : ''}</span>
     </div><p>{detail}</p>{mode === 'executing' && latestAction ? <small>{latestAction.replace(/^Proposed /, '').split(' · ')[0]}</small> : null}</div>

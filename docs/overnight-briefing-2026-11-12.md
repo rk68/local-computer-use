@@ -494,3 +494,12 @@ It covered colour matching, the absence of a status bubble, both themes, and red
 It also covered reload persistence, cancellation, late-result rejection, and a subsequent greeting.
 The runtime suite still passed all 33 tests.
 The temporary QA bot was archived after the check.
+
+### Flowing text highlight
+
+Active status labels now use a narrow highlight that moves left to right through the letters.
+The sweep pauses briefly before repeating.
+Its base colour follows the selected avatar.
+Light mode uses a darker highlight for contrast.
+Reduced-motion settings retain static text.
+The frame check passed at four animation positions, in both themes, and with reduced motion.

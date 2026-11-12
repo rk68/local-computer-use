@@ -965,3 +965,24 @@ main > .app-notice { margin: 12px 28px 0; flex: none; }
 @media (prefers-reduced-motion: reduce) {
   .agent-presence:not([data-mode='waiting']) .presence-label { animation: none !important; background: none !important; color: var(--presence-ink) !important; filter: none; text-shadow: none; }
 }
+
+/* A narrow highlight travels through the letters, then rests between passes. */
+.agent-presence:not([data-mode='waiting']) .flowing-text {
+  --flow-base: color-mix(in srgb, var(--presence-ink) 35%, var(--muted));
+  background-image: linear-gradient(105deg,
+    var(--flow-base) 0%, var(--flow-base) 42%, var(--presence-ink) 46%,
+    var(--flow-highlight, var(--presence-sheen)) 49%, var(--flow-highlight, var(--presence-sheen)) 51%,
+    var(--presence-ink) 54%, var(--flow-base) 58%, var(--flow-base) 100%);
+  background-size: 280% 100%; background-position: 100% 0;
+  background-clip: text; -webkit-background-clip: text; color: transparent;
+  text-shadow: 0 0 8px var(--presence-aura); filter: none;
+  animation: presence-flow 2.8s linear infinite;
+}
+:root[data-theme='light'] .agent-presence .flowing-text { --flow-highlight: color-mix(in srgb, var(--presence-deep) 80%, #000); }
+@keyframes presence-flow {
+  0%, 12% { background-position: 100% 0; }
+  88%, 100% { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-presence:not([data-mode='waiting']) .flowing-text { animation: none !important; background: none !important; color: var(--presence-ink) !important; text-shadow: none; }
+}
