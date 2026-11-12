@@ -9,10 +9,11 @@
   <p><a href="#get-started">Get started</a> · <a href="docs/guide.md">Operating guide</a> · <a href="docs/convex-architecture.md">Architecture</a> · <a href="TODO.md">Roadmap</a></p>
 </div>
 
-[![Halo demo showing a typed request, the live Linux virtual desktop, and a screenshot shared in chat](docs/images/halo-demo.gif)](docs/images/halo-demo.mp4)
+[![Halo opens Google from a blank browser, finds a black and white kitten, and shares a screenshot in chat](docs/images/halo-cat-demo.gif)](docs/images/halo-cat-demo.mp4)
 
-Nova completes a practice-form task in an offline Linux sandbox and shares the result in chat.
-Model waits are shortened. [Watch the video](docs/images/halo-demo.mp4) · [View a still image](docs/images/workspace.png)
+Halo opens google.com from a blank browser, finds a black and white kitten in Google Images, and shares a screenshot in chat.
+Google's CAPTCHA was completed before this take. Model waits are shortened.
+[Watch the video](docs/images/halo-cat-demo.mp4) · [View a still image](docs/images/halo-cat-demo.png)
 
 Halo runs H Company's Holo models on your Mac through llama.cpp and Apple Metal.
 Chat with your bots, give them saved memory, and let them work in a separate Linux desktop.
@@ -41,7 +42,8 @@ The app stores conversations locally with Convex.
   </tr>
 </table>
 
-The recording and screenshots use demo bots and a local practice form.
+The recording uses a separate demo conversation and a live website.
+The screenshots above use demo bots and a local practice form.
 
 ## Get started
 
