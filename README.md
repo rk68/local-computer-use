@@ -49,8 +49,8 @@ You need an Apple silicon Mac, Node.js 22.13 or later, and [llama.cpp](https://g
 Install llama.cpp with Homebrew if it is not already available.
 
 ```sh
-git clone https://github.com/rk68/local-computer-use.git
-cd local-computer-use
+git clone https://github.com/rk68/halo.git
+cd halo
 brew install llama.cpp
 bash scripts/poc.sh setup
 bash scripts/poc.sh
