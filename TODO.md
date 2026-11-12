@@ -14,9 +14,7 @@ Questions, decisions, validation, and the morning handoff are recorded in `docs/
 
 # Cua TypeScript executor migration — complete
 
-The latest request in the previous personal-account Codex thread was to move the
-Cua desktop executor from Python to TypeScript. That turn stopped at the account
-usage limit on 11 November 2026, before the executor was implemented.
+The Cua desktop executor migration from Python to TypeScript is complete.
 
 - [x] Create the initial `runtime/package.json` and lockfile with `@trycua/cua`.
 - [x] Verify the TypeScript SDK covers local QEMU, screenshots, input, files, network isolation, and guest cleanup.
@@ -25,8 +23,6 @@ usage limit on 11 November 2026, before the executor was implemented.
 - [x] Switch setup, launcher, and cleanup commands to the verified TypeScript runtime and update the setup documentation.
 - [x] Run live Holo4 and real-VM checks when requested and resource use permits.
 
-Recovered on 12 November 2026 from personal-account thread
-`01a1c248-b17c-7091-b90b-977ca1548cc3`.
 The last completed commit was `d93b5d6` (local Convex bots, threads, and streaming).
 `runtime/src/` was empty at recovery. The default launcher now uses the completed TypeScript executor.
 The overnight request authorized the outstanding live checks. Those checks passed, and all test models and VMs were stopped.

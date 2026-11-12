@@ -9,7 +9,10 @@
   <p><a href="#get-started">Get started</a> · <a href="docs/guide.md">Operating guide</a> · <a href="docs/convex-architecture.md">Architecture</a> · <a href="TODO.md">Roadmap</a></p>
 </div>
 
-![Halo workspace with a lilac bot preparing a chat response](docs/images/workspace.png)
+[![Halo demo showing a typed request, the live Linux virtual desktop, and a screenshot shared in chat](docs/images/halo-demo.gif)](docs/images/halo-demo.mp4)
+
+Nova completes a practice-form task in an offline Linux sandbox and shares the result in chat.
+Model waits are shortened. [Watch the video](docs/images/halo-demo.mp4) · [View a still image](docs/images/workspace.png)
 
 Halo runs H Company's Holo models on your Mac through llama.cpp and Apple Metal.
 Chat with your bots, give them saved memory, and let them work in a separate Linux desktop.
@@ -38,7 +41,7 @@ The app stores conversations locally with Convex.
   </tr>
 </table>
 
-Screenshots show the local development app with test bots.
+The recording and screenshots use demo bots and a local practice form.
 
 ## Get started
 
