@@ -1,5 +1,31 @@
 # Halo operating guide
 
+## One-command installation
+
+On an Apple silicon Mac with Homebrew and Apple Command Line Tools, run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rk68/halo/main/install.sh | bash
+```
+
+The installer clones Halo into `~/.local/share/halo`, installs missing Node.js, QEMU, and llama.cpp tools,
+prepares the local runtime and network gateway, and builds the native Mac app.
+It adds a shortcut in `~/Applications` and the command `~/.local/bin/halo`.
+It does not start a model or VM.
+
+Open the app from your user Applications folder or run `~/.local/bin/halo`.
+If `~/.local/bin` is on your shell's `PATH`, use `halo` directly.
+Use `halo install` to repeat setup or rebuild after changing the Node.js executable.
+From an existing checkout, run `./halo install`.
+Use `halo start` for the browser app.
+
+The installer does not update Git or edit shell profiles.
+It stops if the installation directory or either shortcut belongs to another installation.
+Keep the checkout in place because the Mac app uses its local services and files.
+`HALO_INSTALL_DIR` changes the bootstrap checkout location. `HALO_BIN_DIR` changes the command directory.
+
+The sections below describe manual setup and operation.
+
 A local desktop assistant powered by Holo4-35B-A3B Q4_K_M, llama.cpp, and Apple Metal.
 
 The interface uses the approved halo brand assets and self-hosted Outfit typography.

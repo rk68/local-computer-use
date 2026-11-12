@@ -45,36 +45,36 @@ The recording and screenshots use demo bots and a local practice form.
 
 ## Get started
 
-You need an Apple silicon Mac, Node.js 22.13 or later, and [llama.cpp](https://github.com/ggml-org/llama.cpp).
-Install llama.cpp with Homebrew if it is not already available.
+On an Apple silicon Mac with [Homebrew](https://brew.sh) and Apple's Command Line Tools, run:
 
 ```sh
-git clone https://github.com/rk68/halo.git
-cd halo
-brew install llama.cpp
-bash scripts/poc.sh setup
-bash scripts/poc.sh
+curl -fsSL https://raw.githubusercontent.com/rk68/halo/main/install.sh | bash
 ```
 
-Open **http://127.0.0.1:8765**.
-Use the model control at the bottom of the sidebar to choose and load a model.
-Models and sandboxes stay off until you request them.
-The first model download can be large.
+The installer downloads Halo, installs missing Node.js, QEMU, and llama.cpp dependencies, and builds the Mac app.
+Open **Halo** in your user **Applications** folder.
+Choose a model from the sidebar when you are ready.
+Models and sandboxes stay off until you request them. The first model download can be large.
 
-### Open as a Mac app
+### The halo command
 
-After setup, build and open the native wrapper.
+The installer adds `~/.local/bin/halo`.
+If that directory is on your `PATH`, you can use:
 
 ```sh
-bash scripts/build-macos.sh
-open artifacts/Halo.app
+halo          # Open the Mac app
+halo install  # Rebuild the installed app and prepare dependencies
+halo start    # Start the browser app at http://127.0.0.1:8765
 ```
 
-The Mac app uses Swift, AppKit, and WebKit around the same React interface.
-It starts the local workspace when needed.
-This local build requires the checkout and its dependencies.
-Rebuild it if you move the project or change the Node.js executable.
-It is ad hoc signed and is not a notarized standalone distribution.
+You can also run `~/.local/bin/halo` directly.
+From an existing checkout, use `./halo install`.
+The default checkout stays in `~/.local/share/halo`. Keep it in place.
+The installer preserves existing conversations and models. It does not update the checkout or edit your shell profile.
+See the [operating guide](docs/guide.md) for manual setup and build commands.
+
+The Mac app uses Swift, AppKit, and WebKit around the React interface.
+It starts the local workspace when needed. This is an ad hoc signed local build, not a notarized standalone distribution.
 
 ## Models
 

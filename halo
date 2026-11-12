@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+  DIRECTORY="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" == /* ]] || SOURCE="$DIRECTORY/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+install_halo() {
+  [[ "$(uname -s)" == Darwin && "$(uname -m)" == arm64 ]] || {
+    echo 'Halo requires an Apple silicon Mac.' >&2
+    exit 1
+  }
+  xcode-select -p >/dev/null 2>&1 || {
+    echo 'Install the Apple Command Line Tools with xcode-select --install, then run halo install again.' >&2
+    exit 1
+  }
+  local bin_dir="${HALO_BIN_DIR:-$HOME/.local/bin}"
+  local app_dir="$HOME/Applications"
+  local target source
+  for target in "$bin_dir/halo" "$app_dir/Halo.app"; do
+    if [[ "$target" == "$bin_dir/halo" ]]; then source="$ROOT/halo"; else source="$ROOT/artifacts/Halo.app"; fi
+    if [[ -e "$target" || -L "$target" ]]; then
+      [[ -L "$target" && "$(readlink "$target")" == "$source" ]] || {
+        echo "Installation stopped. $target already belongs to another installation." >&2
+        exit 1
+      }
+    fi
+  done
+
+  local packages=()
+  if ! command -v npm >/dev/null || ! command -v node >/dev/null || ! node -e 'const [major,minor]=process.versions.node.split(".").map(Number);process.exit(major>22||major===22&&minor>=13?0:1)' 2>/dev/null; then
+    packages+=(node@22)
+  fi
+  if ! command -v qemu-system-aarch64 >/dev/null || ! command -v qemu-img >/dev/null; then packages+=(qemu); fi
+  if ! command -v llama-server >/dev/null; then packages+=(llama.cpp); fi
+  if [[ ${#packages[@]} -gt 0 ]]; then
+    local brew
+    if command -v brew >/dev/null; then brew="$(command -v brew)";
+    elif [[ -x /opt/homebrew/bin/brew ]]; then brew=/opt/homebrew/bin/brew;
+    else echo 'Install Homebrew from https://brew.sh, then run the Halo installer again.' >&2; exit 1; fi
+    HOMEBREW_NO_AUTO_UPDATE=1 "$brew" install "${packages[@]}"
+    PATH="$("$brew" --prefix)/bin:$PATH"
+    if [[ " ${packages[*]} " == *' node@22 '* ]]; then PATH="$("$brew" --prefix node@22)/bin:$PATH"; fi
+    export PATH
+  fi
+
+  bash "$ROOT/scripts/poc.sh" setup
+  bash "$ROOT/scripts/build-macos.sh"
+  mkdir -p "$bin_dir" "$app_dir"
+  [[ -L "$bin_dir/halo" ]] || ln -s "$ROOT/halo" "$bin_dir/halo"
+  [[ -L "$app_dir/Halo.app" ]] || ln -s "$ROOT/artifacts/Halo.app" "$app_dir/Halo.app"
+  echo
+  echo 'Halo is installed. Open Halo from your user Applications folder.'
+  echo "You can also run: $bin_dir/halo"
+  case ":$PATH:" in
+    *":$bin_dir:"*) ;;
+    *) echo "For the short halo command, add $bin_dir to your shell PATH." ;;
+  esac
+  echo 'Choose a model in the app when you are ready. No model or VM was started.'
+}
+
+[[ $# -le 1 ]] || { echo 'Use halo, halo install, or halo start.' >&2; exit 1; }
+case "${1:-open}" in
+  install) install_halo ;;
+  open)
+    [[ -d "$ROOT/artifacts/Halo.app" ]] || { echo 'Run halo install first.' >&2; exit 1; }
+    exec open "$ROOT/artifacts/Halo.app"
+    ;;
+  start) exec bash "$ROOT/scripts/poc.sh" ;;
+  help|--help|-h)
+    echo 'halo          Open the Mac app'
+    echo 'halo install  Install dependencies and build the Mac app'
+    echo 'halo start    Start Halo in your browser'
+    ;;
+  *) echo "Unknown command: $1. Use halo --help." >&2; exit 1 ;;
+esac
